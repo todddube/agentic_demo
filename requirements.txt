@@ -1,0 +1,6 @@
+requests
+matplotlib
+numpy
+pygame
+rich
+ollama
