@@ -30,11 +30,11 @@ from unified_visualizer import UnifiedVisualizer
 def print_banner():
     """Print a nice banner for the demo"""
     print("=" * 70)
-    print("           🚗 CARMAX STORE DEMO 🚗")
+    print("           CarMax Store Demo")
     print("")
     print("        Multi-Agent CarMax Store System")
     print("")
-    print("  Team: Sales 🏆 | Appraisal 📊 | Finance � | Manager �")
+    print("  Team: Sales | Appraisal | Finance | Manager")
     print("=" * 70)
 
 def check_ollama_connection(orchestrator, visualizer):
@@ -93,7 +93,7 @@ def run_demo(orchestrator, visualizer):
         role_name = {"sales": "Sales", "appraisal": "Appraisal", "finance": "Finance", "manager": "Manager"}[agent_type]
         visualizer.log_message(f"   {i}. {desc[:50]}... → {role_name}", "text_secondary")
     
-    visualizer.log_message(f"✨ Processing customer requests...", "info")
+    visualizer.log_message(f"[PROCESS] Processing customer requests...", "info")
     visualizer.log_message("-" * 50, "text_dim")
     
     # Process tasks
@@ -123,7 +123,7 @@ def run_demo(orchestrator, visualizer):
 
 def show_summary(orchestrator, visualizer):
     """Show a summary of agent performance"""
-    visualizer.log_message("📊 Agent Performance Summary", "info")
+    visualizer.log_message("[STATS] Agent Performance Summary", "info")
     visualizer.log_message("=" * 40, "text_dim")
     
     for agent_type, agent in orchestrator.agents.items():
@@ -152,62 +152,55 @@ def main():
     print_banner()
     
     # Initialize the system
-    print("🔧 Initializing CarMax Store System...")
+    print("[INIT] Initializing CarMax Store System...")
     orchestrator = AgentOrchestrator()
     visualizer = UnifiedVisualizer(orchestrator)
     
-    # Start the visualizer
-    print("🎮 Starting CarMax store interface...")
-    print("   (A large pygame window will open with both graphics and text)")
-    visualizer.start()
-    time.sleep(2)  # Give visualizer time to start
-    
-    # Check Ollama connection
-    if not check_ollama_connection(orchestrator, visualizer):
-        visualizer.log_message("❌ Demo cannot continue without Ollama connection.", "error")
-        visualizer.log_message("Please start Ollama and try again.", "error")
-        input("Press Enter to exit...")
-        visualizer.stop()
-        return
-    
-    # Show initial agent status
-    visualizer.log_message("👥 Agent Team Ready:", "info")
-    for agent_type, agent in orchestrator.agents.items():
-        visualizer.log_message(f"   • {agent.name} - {agent.role}", "text_secondary")
-    
-    # Run the demo
-    try:
+    # Define the demo function to be called when start button is clicked
+    def demo_function():
+        """The actual demo logic that runs when start button is clicked"""
+        # Check Ollama connection
+        if not check_ollama_connection(orchestrator, visualizer):
+            visualizer.log_message("❌ Demo cannot continue without Ollama connection.", "error")
+            visualizer.log_message("Please start Ollama and try again.", "error")
+            return
+        
+        # Show initial agent status
+        visualizer.log_message("👥 Agent Team Ready:", "info")
+        for agent_type, agent in orchestrator.agents.items():
+            visualizer.log_message(f"   • {agent.name} - {agent.role}", "text_secondary")
+        
+        # Run the demo tasks
         run_demo(orchestrator, visualizer)
         show_summary(orchestrator, visualizer)
         
-        # Ask user if they want to see detailed results
-        visualizer.log_message("🔍 Press 'y' + Enter in console for detailed results", "info")
-        response = input("\n🔍 Would you like to see detailed task results? (y/n): ")
-        if response.lower().startswith('y'):
-            show_task_details(orchestrator, visualizer)
-        
-        # Keep visualization running
-        visualizer.log_message("🎮 CarMax Store System is running!", "success")
-        visualizer.log_message("📊 Graphics panel shows team network and status", "info")
+        # Mark demo as completed
+        visualizer.demo_state = "completed"
+        visualizer.log_message("� Demo completed! The system is now ready for exploration.", "success")
+        visualizer.log_message("[INFO] Graphics panel shows team network and status", "info")
         visualizer.log_message("📝 Text panel shows all system output", "info")
-        visualizer.log_message("🎮 Use controls: ↑↓ scroll, Space: auto-scroll, D: details", "info")
-        
-        # Wait for user to finish viewing
-        input("\n📋 Press Enter to close the store system and exit...")
-        
+        visualizer.log_message("[UI] Use controls: ↑↓ scroll, Space: auto-scroll, D: details", "info")
+        visualizer.log_message("⚠️ Close pygame window or press ESC to exit", "info")
+    
+    # Set the demo callback
+    visualizer.set_demo_callback(demo_function)
+    
+    # Start the visualizer (shows start screen)
+    print("[START] Starting CarMax store interface...")
+    print("   (A pygame window will open with a start screen)")
+    print("   Click the START DEMO button or press SPACE to begin!")
+    visualizer.start()
+    
+    # Wait for pygame window to be closed (the visualization thread handles everything)
+    try:
+        # Join the visualization thread instead of polling
+        if hasattr(visualizer, 'visualization_thread'):
+            visualizer.visualization_thread.join()
     except KeyboardInterrupt:
-        visualizer.log_message("⚠️ Demo interrupted by user", "error")
         print("\n\n⚠️  Demo interrupted by user")
-    except Exception as e:
-        visualizer.log_message(f"❌ Demo error: {str(e)}", "error")
-        print(f"\n❌ Demo error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        # Stop the visualizer
-        print("\n🔄 Closing store system...")
         visualizer.stop()
-        print("👋 Thanks for trying the CarMax Store Demo!")
+    finally:
+        print("\n👋 Thanks for trying the CarMax Store Demo!")
 
 if __name__ == "__main__":
     main()

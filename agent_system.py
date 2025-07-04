@@ -23,9 +23,30 @@ class Task:
 class OllamaClient:
     def __init__(self, base_url: str = "http://localhost:11434"):
         self.base_url = base_url
+        self.interaction_callback = None  # Callback for visualizing interactions
+        self.request_count = 0
+        self.last_request_time = None
+        self.current_agent_type = None  # Current agent making the request
+        
+    def set_interaction_callback(self, callback):
+        """Set callback function for interaction visualization"""
+        self.interaction_callback = callback
         
     def generate(self, model: str, prompt: str, system_prompt: str = "") -> str:
         """Generate text using Ollama API"""
+        self.request_count += 1
+        self.last_request_time = time.time()
+        
+        # Notify visualizer of outgoing request
+        if self.interaction_callback:
+            self.interaction_callback("request", {
+                "model": model,
+                "prompt_length": len(prompt),
+                "system_prompt_length": len(system_prompt),
+                "request_id": self.request_count,
+                "agent_type": self.current_agent_type
+            })
+        
         try:
             url = f"{self.base_url}/api/generate"
             data = {
@@ -39,12 +60,41 @@ class OllamaClient:
             response.raise_for_status()
             
             result = response.json()
-            return result.get("response", "")
+            response_text = result.get("response", "")
+            
+            # Notify visualizer of response
+            if self.interaction_callback:
+                self.interaction_callback("response", {
+                    "success": True,
+                    "response_length": len(response_text),
+                    "request_id": self.request_count,
+                    "agent_type": self.current_agent_type
+                })
+            
+            return response_text
             
         except requests.exceptions.RequestException as e:
-            return f"Error: {str(e)}"
+            error_msg = f"Error: {str(e)}"
+            # Notify visualizer of error
+            if self.interaction_callback:
+                self.interaction_callback("error", {
+                    "success": False,
+                    "error": str(e),
+                    "request_id": self.request_count,
+                    "agent_type": self.current_agent_type
+                })
+            return error_msg
         except Exception as e:
-            return f"Unexpected error: {str(e)}"
+            error_msg = f"Unexpected error: {str(e)}"
+            # Notify visualizer of error
+            if self.interaction_callback:
+                self.interaction_callback("error", {
+                    "success": False,
+                    "error": str(e),
+                    "request_id": self.request_count,
+                    "agent_type": self.current_agent_type
+                })
+            return error_msg
 
 class BaseAgent:
     def __init__(self, name: str, role: str, model: str = "llama3.2"):
@@ -54,6 +104,11 @@ class BaseAgent:
         self.client = OllamaClient()
         self.status = AgentStatus.IDLE
         self.tasks_completed = 0
+        self.agent_type = None  # Will be set by orchestrator
+        
+    def set_agent_type(self, agent_type: str):
+        """Set the agent type for interaction tracking"""
+        self.agent_type = agent_type
         
     def process_task(self, task: Task) -> str:
         """Process a task and return the result"""
@@ -61,6 +116,10 @@ class BaseAgent:
         task.status = AgentStatus.WORKING
         
         try:
+            # Set current agent type in client for this request
+            if hasattr(self.client, 'current_agent_type'):
+                self.client.current_agent_type = self.agent_type
+            
             system_prompt = f"You are {self.name}, a {self.role}. {self.get_system_prompt()}"
             result = self.client.generate(
                 model=self.model,
@@ -130,7 +189,27 @@ class AgentOrchestrator:
         }
         self.task_queue: List[Task] = []
         self.completed_tasks: List[Task] = []
+        self.ollama_interaction_callback = None  # For visualizer
         
+        # Set up Ollama callbacks for all agents
+        self.setup_ollama_callbacks()
+    
+    def setup_ollama_callbacks(self):
+        """Set up Ollama interaction callbacks for all agents"""
+        for agent_type, agent in self.agents.items():
+            agent.set_agent_type(agent_type)  # Set the agent type
+            agent.client.set_interaction_callback(self._handle_ollama_interaction)
+            agent.client.current_agent_type = agent_type  # Set current agent type in client
+    
+    def set_ollama_callback(self, callback):
+        """Set the callback for Ollama interactions"""
+        self.ollama_interaction_callback = callback
+    
+    def _handle_ollama_interaction(self, interaction_type: str, data: dict):
+        """Handle Ollama interactions for visualization"""
+        if self.ollama_interaction_callback:
+            self.ollama_interaction_callback(interaction_type, data)
+    
     def create_task(self, description: str, agent_type: str) -> Task:
         """Create a new task"""
         task_id = f"task_{len(self.task_queue) + len(self.completed_tasks) + 1:03d}"
