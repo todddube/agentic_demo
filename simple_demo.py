@@ -39,7 +39,7 @@ def print_banner():
 
 def check_ollama_connection(orchestrator, visualizer):
     """Check if Ollama is running and llama3.2 is available"""
-    visualizer.log_message("🔍 Checking Ollama connection...", "info")
+    visualizer.log_message("[CHECK] Checking Ollama connection...", "info")
     
     try:
         # Test with a simple prompt
@@ -51,18 +51,18 @@ def check_ollama_connection(orchestrator, visualizer):
         )
         
         if "Error" in test_result or not test_result.strip():
-            visualizer.log_message("❌ Ollama connection failed. Please ensure:", "error")
+            visualizer.log_message("[ERROR] Ollama connection failed. Please ensure:", "error")
             visualizer.log_message("   1. Ollama is installed and running", "error")
             visualizer.log_message("   2. Run: ollama serve", "error")
             visualizer.log_message("   3. Run: ollama pull llama3.2", "error")
             return False
         else:
-            visualizer.log_message("✅ Ollama connection successful!", "success")
+            visualizer.log_message("[OK] Ollama connection successful!", "success")
             visualizer.log_message(f"   Test response: {test_result.strip()}", "text_secondary")
             return True
             
     except Exception as e:
-        visualizer.log_message(f"❌ Connection error: {str(e)}", "error")
+        visualizer.log_message(f"[ERROR] Connection error: {str(e)}", "error")
         return False
 
 def create_demo_tasks():
@@ -80,12 +80,12 @@ def create_demo_tasks():
 
 def run_demo(orchestrator, visualizer):
     """Run the CarMax store demo with unified visualization"""
-    visualizer.log_message("🚀 Starting CarMax Store Demo", "info")
+    visualizer.log_message("[START] Starting CarMax Store Demo", "info")
     
     demo_tasks = create_demo_tasks()
     
     # Create tasks
-    visualizer.log_message(f"📋 Creating {len(demo_tasks)} tasks for the team...", "info")
+    visualizer.log_message(f"[TASKS] Creating {len(demo_tasks)} tasks for the team...", "info")
     tasks = []
     for i, (desc, agent_type) in enumerate(demo_tasks, 1):
         task = orchestrator.create_task(desc, agent_type)
@@ -112,14 +112,14 @@ def run_demo(orchestrator, visualizer):
         visualizer.task_completed(task, result)
         
         # Show completion
-        visualizer.log_message(f"✅ Completed at {task.timestamp}", "success")
+        visualizer.log_message(f"[DONE] Completed at {task.timestamp}", "success")
         visualizer.log_message("-" * 50, "text_dim")
         
         time.sleep(1.5)  # Delay to see the visualization
     
     # Clear current task from visualizer
     visualizer.clear_current_task()
-    visualizer.log_message("🎉 All tasks completed successfully!", "success")
+    visualizer.log_message("[SUCCESS] All tasks completed successfully!", "success")
 
 def show_summary(orchestrator, visualizer):
     """Show a summary of agent performance"""
@@ -149,12 +149,13 @@ def show_task_details(orchestrator, visualizer):
 
 def main():
     """Main demo function"""
-    print_banner()
-    
     # Initialize the system
     print("[INIT] Initializing CarMax Store System...")
     orchestrator = AgentOrchestrator()
     visualizer = UnifiedVisualizer(orchestrator)
+    
+    # Set up log callback so agent system messages go to pygame window
+    orchestrator.set_log_callback(visualizer.log_message)
     
     # Define the demo function to be called when start button is clicked
     def demo_function():
@@ -176,7 +177,7 @@ def main():
         
         # Mark demo as completed
         visualizer.demo_state = "completed"
-        visualizer.log_message("� Demo completed! The system is now ready for exploration.", "success")
+        visualizer.log_message("[DONE] Demo completed! The system is now ready for exploration.", "success")
         visualizer.log_message("[INFO] Graphics panel shows team network and status", "info")
         visualizer.log_message("📝 Text panel shows all system output", "info")
         visualizer.log_message("[UI] Use controls: ↑↓ scroll, Space: auto-scroll, D: details", "info")
@@ -187,8 +188,6 @@ def main():
     
     # Start the visualizer (shows start screen)
     print("[START] Starting CarMax store interface...")
-    print("   (A pygame window will open with a start screen)")
-    print("   Click the START DEMO button or press SPACE to begin!")
     visualizer.start()
     
     # Wait for pygame window to be closed (the visualization thread handles everything)
@@ -197,10 +196,9 @@ def main():
         if hasattr(visualizer, 'visualization_thread'):
             visualizer.visualization_thread.join()
     except KeyboardInterrupt:
-        print("\n\n⚠️  Demo interrupted by user")
         visualizer.stop()
     finally:
-        print("\n👋 Thanks for trying the CarMax Store Demo!")
+        pass
 
 if __name__ == "__main__":
     main()

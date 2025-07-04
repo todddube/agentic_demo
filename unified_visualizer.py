@@ -503,7 +503,7 @@ class UnifiedVisualizer:
                     
                     if drag_distance > 5:  # Minimum drag distance to count as a move
                         self.save_agent_positions()
-                        self.add_text(f"📍 Moved {self.dragged_agent} agent to new position", "info")
+                        self.add_text(f"[MOVE] Moved {self.dragged_agent} agent to new position", "info")
                 
                 self.dragged_agent = None
                 self.drag_start_pos = None
@@ -850,9 +850,9 @@ class UnifiedVisualizer:
         ]
         
         for i, text in enumerate(control_text):
-            # Use medium font for better readability of controls
-            surface = self.font_medium.render(text, True, self.colors['text_dim'])
-            self.screen.blit(surface, (self.graphics_width + 15, controls_y + i * 16))
+            # Use smaller font for controls (two sizes smaller than medium)
+            surface = self.font_small.render(text, True, self.colors['text_dim'])
+            self.screen.blit(surface, (self.graphics_width + 15, controls_y + i * 14))
     
     def draw_connections(self):
         """Draw connections between agents"""

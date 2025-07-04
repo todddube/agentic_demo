@@ -190,6 +190,7 @@ class AgentOrchestrator:
         self.task_queue: List[Task] = []
         self.completed_tasks: List[Task] = []
         self.ollama_interaction_callback = None  # For visualizer
+        self.log_callback = None  # For sending log messages to visualizer
         
         # Set up Ollama callbacks for all agents
         self.setup_ollama_callbacks()
@@ -210,6 +211,17 @@ class AgentOrchestrator:
         if self.ollama_interaction_callback:
             self.ollama_interaction_callback(interaction_type, data)
     
+    def set_log_callback(self, callback):
+        """Set the callback for log messages"""
+        self.log_callback = callback
+    
+    def log_message(self, message: str, message_type: str = "info"):
+        """Send a log message to the visualizer if callback is set, otherwise print"""
+        if self.log_callback:
+            self.log_callback(message, message_type)
+        else:
+            print(message)
+    
     def create_task(self, description: str, agent_type: str) -> Task:
         """Create a new task"""
         task_id = f"task_{len(self.task_queue) + len(self.completed_tasks) + 1:03d}"
@@ -223,8 +235,8 @@ class AgentOrchestrator:
             return f"Error: Unknown agent type '{task.agent_type}'"
         
         agent = self.agents[task.agent_type]
-        print(f"📋 Assigning task {task.id} to {agent.name}")
-        print(f"   Task: {task.description}")
+        self.log_message(f"[ASSIGN] Task {task.id} → {agent.name}", "info")
+        self.log_message(f"   Task: {task.description}", "text_secondary")
         
         result = agent.process_task(task)
         
@@ -233,22 +245,21 @@ class AgentOrchestrator:
             self.task_queue.remove(task)
         self.completed_tasks.append(task)
         
-        print(f"✅ {agent.name} completed task {task.id}")
-        print(f"   Result: {result[:100]}{'...' if len(result) > 100 else ''}")
-        print()
+        self.log_message(f"[COMPLETE] {agent.name} finished task {task.id}", "success")
+        self.log_message(f"   Result: {result[:100]}{'...' if len(result) > 100 else ''}", "text_secondary")
         
         return result
     
     def process_all_tasks(self):
         """Process all tasks in the queue"""
-        print("🚀 Starting task processing...\n")
+        self.log_message("[PROCESS] Starting task processing...", "info")
         
         while self.task_queue:
             task = self.task_queue[0]
             self.assign_task(task)
             time.sleep(1)  # Small delay between tasks
         
-        print("🎉 All tasks completed!")
+        self.log_message("[DONE] All tasks completed!", "success")
     
     def get_agent_status(self) -> Dict[str, Any]:
         """Get status of all agents"""
