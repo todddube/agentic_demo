@@ -182,10 +182,10 @@ class StoreManagerAgent(BaseAgent):
 class AgentOrchestrator:
     def __init__(self):
         self.agents = {
-            "sales": SalesConsultantAgent("Mike Rodriguez - Sales"),
-            "appraisal": AppraisalManagerAgent("Sarah Chen - Appraisal"), 
-            "finance": FinanceManagerAgent("David Williams - Finance"),
-            "manager": StoreManagerAgent("Jennifer Thompson - Store Manager")
+            "sales": SalesConsultantAgent("🚗 Mike Rodriguez - Sales Pro"),
+            "appraisal": AppraisalManagerAgent("📊 Sarah Chen - Vehicle Expert"), 
+            "finance": FinanceManagerAgent("💰 David Williams - Finance Wizard"),
+            "manager": StoreManagerAgent("🏆 Jennifer Thompson - Team Leader")
         }
         self.task_queue: List[Task] = []
         self.completed_tasks: List[Task] = []

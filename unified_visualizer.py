@@ -2,6 +2,7 @@ import pygame
 import math
 import time
 import threading
+import random
 from typing import Dict, List, Tuple, Optional
 from enum import Enum
 import queue
@@ -55,6 +56,13 @@ class UnifiedVisualizer:
         self.drag_offset_x = 0
         self.drag_offset_y = 0
         self.drag_start_pos = None
+        
+        # Resizing state for agent nodes
+        self.is_resizing_agent = False
+        self.resized_agent = None
+        self.resize_start_size = 0
+        self.resize_start_mouse = (0, 0)
+        self.agent_custom_sizes = {}  # Store custom sizes for agents
         
         # Colors
         self.colors = {
@@ -194,7 +202,17 @@ class UnifiedVisualizer:
         try:
             if os.path.exists(self.positions_file):
                 with open(self.positions_file, 'r') as f:
-                    saved_positions = json.load(f)
+                    saved_data = json.load(f)
+                
+                # Handle legacy format (just positions) or new format (positions + sizes)
+                if isinstance(saved_data, dict) and 'positions' in saved_data:
+                    # New format with positions and sizes
+                    saved_positions = saved_data.get('positions', {})
+                    saved_sizes = saved_data.get('custom_sizes', {})
+                else:
+                    # Legacy format (just positions)
+                    saved_positions = saved_data
+                    saved_sizes = {}
                 
                 # Validate that all required agents are present
                 required_agents = ['sales', 'appraisal', 'finance', 'manager', 'orchestrator', 'ollama']
@@ -210,7 +228,10 @@ class UnifiedVisualizer:
                         else:
                             return False  # Invalid position format
                     
-                    self.add_text("[FOLDER] Loaded saved agent positions", "info")
+                    # Load custom sizes
+                    self.agent_custom_sizes.update(saved_sizes)
+                    
+                    self.add_text(f"[FOLDER] Loaded saved agent positions and {len(saved_sizes)} custom sizes", "info")
                     return True
         except Exception as e:
             self.add_text(f"[WARN] Error loading positions: {e}", "error")
@@ -220,13 +241,18 @@ class UnifiedVisualizer:
     def save_agent_positions(self):
         """Save current agent positions to JSON file"""
         try:
-            # Convert tuples to lists for JSON serialization
-            positions_to_save = {agent: list(pos) for agent, pos in self.agent_positions.items()}
+            # Save both positions and custom sizes
+            data_to_save = {
+                'positions': {agent: list(pos) for agent, pos in self.agent_positions.items()},
+                'custom_sizes': self.agent_custom_sizes.copy()
+            }
             
             with open(self.positions_file, 'w') as f:
-                json.dump(positions_to_save, f, indent=2)
+                json.dump(data_to_save, f, indent=2)
             
-            self.add_text("[SAVE] Agent positions saved", "info")
+            # Only show save message when not resizing (to avoid spam)
+            if not self.is_resizing_agent:
+                self.add_text("[SAVE] Agent positions and sizes saved", "info")
         except Exception as e:
             self.add_text(f"[WARN] Error saving positions: {e}", "error")
     
@@ -431,10 +457,11 @@ class UnifiedVisualizer:
         elif key == pygame.K_d:
             self.show_details = not self.show_details
         elif key == pygame.K_r:
-            # R key to reset agent positions to default
+            # R key to reset agent positions and sizes to default
             self.create_default_agent_positions()
+            self.agent_custom_sizes.clear()  # Clear all custom sizes
             self.save_agent_positions()
-            self.add_text("[RESET] Agent positions reset to default layout", "info")
+            self.add_text("[RESET] Agent positions and sizes reset to default", "info")
         elif key == pygame.K_f:
             # F key to toggle floating response windows
             self.show_floating_responses = not self.show_floating_responses
@@ -470,25 +497,52 @@ class UnifiedVisualizer:
                 self.resize_original_width = self.graphics_width
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_SIZEWE)
             else:
-                # Check if clicking on an agent for dragging
-                agent_type = self.get_agent_at_position(pos)
-                if agent_type:
-                    self.is_dragging = True
-                    self.dragged_agent = agent_type
-                    self.drag_start_pos = pos
-                    
-                    # Calculate offset from agent center
-                    agent_pos = self.agent_positions[agent_type]
-                    self.drag_offset_x = mouse_x - agent_pos[0]
-                    self.drag_offset_y = mouse_y - agent_pos[1]
-                    
-                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+                # Check if clicking on a resize handle first
+                resize_agent = None
+                for agent_type in self.agent_positions:
+                    if agent_type in ['ollama']:  # Skip non-resizable agents
+                        continue
+                    if self.is_mouse_on_resize_handle(pos, agent_type):
+                        resize_agent = agent_type
+                        break
+                
+                if resize_agent:
+                    # Start resizing operation
+                    self.is_resizing_agent = True
+                    self.resized_agent = resize_agent
+                    self.resize_start_mouse = pos
+                    self.resize_start_size = self.get_agent_radius(resize_agent)
+                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_SIZENWSE)  # Diagonal resize cursor
+                else:
+                    # Check if clicking on an agent for dragging
+                    agent_type = self.get_agent_at_position(pos)
+                    if agent_type:
+                        self.is_dragging = True
+                        self.dragged_agent = agent_type
+                        self.drag_start_pos = pos
+                        
+                        # Calculate offset from agent center
+                        agent_pos = self.agent_positions[agent_type]
+                        self.drag_offset_x = mouse_x - agent_pos[0]
+                        self.drag_offset_y = mouse_y - agent_pos[1]
+                        
+                        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
     
     def handle_mouse_up(self, pos, button):
         """Handle mouse button up events"""
         if button == 1:  # Left mouse button
             if self.is_resizing:
                 self.is_resizing = False
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+            elif self.is_resizing_agent:
+                # Complete the resize operation
+                self.is_resizing_agent = False
+                
+                # Save the new sizes
+                self.save_agent_positions()
+                self.add_text(f"[RESIZE] Resized {self.resized_agent} agent", "info")
+                
+                self.resized_agent = None
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
             elif self.is_dragging:
                 # Complete the drag operation
@@ -530,7 +584,27 @@ class UnifiedVisualizer:
                 # Only recalculate positions if using default layout (no saved positions)
                 if not os.path.exists(self.positions_file):
                     self.create_default_agent_positions()
+        elif self.is_resizing_agent and self.resized_agent:
+            # Update agent size while resizing
+            dx = mouse_x - self.resize_start_mouse[0]
+            dy = mouse_y - self.resize_start_mouse[1]
+            # Use the larger of the two distances for diagonal resize
+            resize_delta = max(dx, dy)
+            
+            # Calculate new size with constraints
+            new_size = self.resize_start_size + resize_delta
+            min_size = 25  # Minimum agent size
+            max_size = 150  # Maximum agent size
+            new_size = max(min_size, min(max_size, new_size))
+            
+            # Store the custom size
+            self.agent_custom_sizes[self.resized_agent] = int(new_size)
         elif self.is_dragging and self.dragged_agent:
+            # Update agent position while dragging
+            new_x = mouse_x - self.drag_offset_x
+            new_y = mouse_y - self.drag_offset_y
+            new_pos = self.constrain_agent_position((new_x, new_y))
+            self.agent_positions[self.dragged_agent] = new_pos
             # Update agent position while dragging
             new_x = mouse_x - self.drag_offset_x
             new_y = mouse_y - self.drag_offset_y
@@ -540,10 +614,23 @@ class UnifiedVisualizer:
             # Show appropriate cursor when hovering
             if abs(mouse_x - self.graphics_width) <= 5:
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_SIZEWE)
-            elif self.get_agent_at_position(pos):
-                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
             else:
-                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+                # Check for resize handle hover
+                resize_hover = False
+                for agent_type in self.agent_positions:
+                    if agent_type in ['ollama']:  # Skip non-resizable agents
+                        continue
+                    if self.is_mouse_on_resize_handle(pos, agent_type):
+                        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_SIZENWSE)
+                        resize_hover = True
+                        break
+                
+                if not resize_hover:
+                    # Check for agent hover
+                    if self.get_agent_at_position(pos):
+                        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+                    else:
+                        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
     
     def get_agent_at_position(self, pos):
         """Check if mouse position is over an agent node"""
@@ -554,10 +641,13 @@ class UnifiedVisualizer:
             if agent_type == 'ollama':
                 continue
                 
+            # Calculate dynamic radius for this agent (same logic as in draw_agent)
+            agent_radius = self.get_agent_radius(agent_type)
+            
             agent_x, agent_y = agent_pos
-            # Check if mouse is within agent radius (45 pixels base radius)
+            # Check if mouse is within agent radius
             distance = math.sqrt((mouse_x - agent_x) ** 2 + (mouse_y - agent_y) ** 2)
-            if distance <= 45:  # Base radius from draw_agent method
+            if distance <= agent_radius:
                 return agent_type
         
         return None
@@ -565,7 +655,7 @@ class UnifiedVisualizer:
     def constrain_agent_position(self, pos):
         """Constrain agent position to stay within graphics panel bounds"""
         x, y = pos
-        margin = 50  # Keep agents away from edges
+        margin = 80  # Increased margin to account for larger agent circles and emojis
         
         x = max(margin, min(self.graphics_width - margin, x))
         y = max(margin, min(self.height - margin, y))
@@ -709,10 +799,10 @@ class UnifiedVisualizer:
         # Team description
         team_lines = [
             "Team Members:",
-            "[CAR] Mike Rodriguez - Sales Consultant",
-            "[DOC] Sarah Chen - Appraisal Manager", 
-            "[$$$] David Williams - Finance Manager",
-            "[MGR] Jennifer Thompson - Store Manager",
+            "🚗 Mike Rodriguez - Sales Pro",
+            "📊 Sarah Chen - Vehicle Expert", 
+            "💰 David Williams - Finance Wizard",
+            "🏆 Jennifer Thompson - Team Leader",
             "[AI] Ollama AI Server - llama3.2"
         ]
         
@@ -837,13 +927,14 @@ class UnifiedVisualizer:
     
     def draw_text_controls(self):
         """Draw text panel controls"""
-        controls_y = self.height - 130  # Moved up to accommodate more lines
+        controls_y = self.height - 144  # Moved up to accommodate more lines
         control_text = [
             "Controls: ↑↓ Scroll | Home/End | Space: Auto-scroll | D: Details | ESC: Quit",
             "Font scaling: Ctrl++ / Ctrl+- (hover over panel to select) | Ctrl+0 to reset",
             "Resize panels: Drag the separator line between panels",
             "Drag agents: Click and drag agent nodes to reposition them",
-            "Reset positions: Press R to restore default agent layout",
+            "Resize agents: Drag the resize handle (◢) at bottom-right of each agent",
+            "Reset layout: Press R to restore default agent positions and sizes",
             "Toggle floating responses: Press F to enable/disable response windows",
             f"Auto-scroll: {'ON' if self.auto_scroll else 'OFF'} | Floating: {'ON' if self.show_floating_responses else 'OFF'} | Lines: {len(self.text_lines)}",
             f"Font scales - Main: {self.main_font_scale:.1f}x | Output: {self.output_font_scale:.1f}x"
@@ -1055,10 +1146,13 @@ class UnifiedVisualizer:
     
     def draw_agent(self, agent_type, agent, pos):
         """Draw a single agent with role-specific graphics"""
-        base_radius = 45
         
-        # Check if this agent is being dragged
+        # Calculate dynamic radius based on agent name length and font size
+        base_radius = self.get_agent_radius(agent_type)
+        
+        # Check if this agent is being dragged or resized
         is_being_dragged = (self.is_dragging and self.dragged_agent == agent_type)
+        is_being_resized = (self.is_resizing_agent and self.resized_agent == agent_type)
         
         # Get status color
         if agent.status.value == 'working':
@@ -1077,8 +1171,8 @@ class UnifiedVisualizer:
             status_color = self.colors[agent_type]
             radius = base_radius
         
-        # Increase radius slightly when being dragged
-        if is_being_dragged:
+        # Increase radius slightly when being dragged or resized
+        if is_being_dragged or is_being_resized:
             radius = int(radius * 1.1)
         
         # Draw drag shadow when being dragged
@@ -1088,6 +1182,13 @@ class UnifiedVisualizer:
             shadow_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
             pygame.draw.circle(shadow_surface, (0, 0, 0, 60), (radius, radius), radius)
             self.screen.blit(shadow_surface, (shadow_pos[0] - radius, shadow_pos[1] - radius))
+        
+        # Draw resize highlight when being resized
+        if is_being_resized:
+            glow_radius = radius + 10
+            glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (255, 255, 0, 80), (glow_radius, glow_radius), glow_radius)
+            self.screen.blit(glow_surface, (pos[0] - glow_radius, pos[1] - glow_radius))
         
         # Draw agent glow
         for i in range(3):
@@ -1161,19 +1262,34 @@ class UnifiedVisualizer:
         
         # Draw agent name with role title
         role_titles = {
-            'sales': 'Sales',
-            'appraisal': 'Appraiser', 
-            'finance': 'Finance',
-            'manager': 'Manager'
+            'sales': 'Sales Pro',
+            'appraisal': 'Vehicle Expert', 
+            'finance': 'Finance Wizard',
+            'manager': 'Team Leader'
         }
         
-        # First name only
-        first_name = agent.name.split()[0]
+        # Split agent name to get just the name part (after emoji)
+        name_parts = agent.name.split(' ', 2)  # Split into emoji, first name, rest
+        if len(name_parts) >= 3:
+            emoji = name_parts[0]
+            first_name = name_parts[1]
+            title_part = name_parts[2] if len(name_parts) > 2 else ""
+        else:
+            emoji = "👤"  # Default emoji
+            first_name = agent.name.split()[0] if agent.name else "Agent"
+            title_part = ""
+        
+        # Draw emoji above the agent circle
+        emoji_text = self.font_large.render(emoji, True, self.colors['text'])
+        emoji_rect = emoji_text.get_rect(center=(pos[0], pos[1] - radius - 30))
+        self.screen.blit(emoji_text, emoji_rect)
+        
+        # Draw first name below the circle
         name_text = self.font_medium.render(first_name, True, self.colors['text'])
         name_rect = name_text.get_rect(center=(pos[0], pos[1] + radius + 20))
         self.screen.blit(name_text, name_rect)
         
-        # Role title
+        # Role title (use the new fun titles)
         role_text = self.font_small.render(role_titles.get(agent_type, 'Agent'), True, self.colors['text_secondary'])
         role_rect = role_text.get_rect(center=(pos[0], pos[1] + radius + 35))
         self.screen.blit(role_text, role_rect)
@@ -1187,10 +1303,41 @@ class UnifiedVisualizer:
         status_text = self.font_small.render(agent.status.value.upper(), True, status_color)
         status_rect = status_text.get_rect(center=(pos[0], pos[1] - radius - 20))
         self.screen.blit(status_text, status_rect)
+        
+        # Show size when being resized
+        if is_being_resized:
+            size_text = self.font_small.render(f"Size: {base_radius}", True, (255, 255, 0))
+            size_rect = size_text.get_rect(center=(pos[0], pos[1] - radius - 35))
+            self.screen.blit(size_text, size_rect)
+        
+        # Draw resize handle (small square at bottom-right of circle)
+        handle_pos = self.get_resize_handle_pos(pos, base_radius)
+        handle_size = 12
+        handle_rect = pygame.Rect(handle_pos[0] - handle_size//2, handle_pos[1] - handle_size//2, 
+                                handle_size, handle_size)
+        
+        # Handle color based on state
+        if is_being_resized:
+            handle_color = (255, 255, 0)  # Bright yellow when resizing
+        elif self.is_mouse_on_resize_handle(pygame.mouse.get_pos(), agent_type):
+            handle_color = (255, 200, 0)  # Orange on hover
+        else:
+            handle_color = (150, 150, 150)  # Gray normally
+        
+        # Draw handle background and border
+        pygame.draw.rect(self.screen, handle_color, handle_rect)
+        pygame.draw.rect(self.screen, self.colors['text'], handle_rect, 2)
+        
+        # Draw resize symbol in handle (with fallback)
+        try:
+            symbol_text = self.font_small.render("◢", True, self.colors['text'])
+        except:
+            symbol_text = self.font_small.render(">>", True, self.colors['text'])
+        symbol_rect = symbol_text.get_rect(center=handle_pos)
+        self.screen.blit(symbol_text, symbol_rect)
     
     def add_work_particles(self, pos):
         """Add particles around working agents"""
-        import random
         for _ in range(2):
             angle = random.random() * 2 * math.pi
             speed = 1 + random.random() * 2
@@ -1531,3 +1678,42 @@ class UnifiedVisualizer:
             self.auto_scroll = False
         elif self.text_scroll_offset == 0:
             self.auto_scroll = True
+    
+    def get_agent_radius(self, agent_type):
+        """Get the current radius for an agent, including custom size"""
+        # Check if agent has custom size
+        if agent_type in self.agent_custom_sizes:
+            return self.agent_custom_sizes[agent_type]
+            
+        # Calculate default radius based on name length
+        if agent_type in self.orchestrator.agents:
+            agent = self.orchestrator.agents[agent_type]
+            name_text_surface = self.font_medium.render(agent.name, True, self.colors['text'])
+            name_width = name_text_surface.get_width()
+            return max(45, (name_width // 2) + 20)
+        
+        return 45  # Fallback
+    
+    def get_resize_handle_pos(self, agent_pos, agent_radius):
+        """Get the position of the resize handle for an agent"""
+        # Place resize handle at bottom-right of the agent circle
+        handle_x = agent_pos[0] + agent_radius - 5
+        handle_y = agent_pos[1] + agent_radius - 5
+        return (handle_x, handle_y)
+    
+    def is_mouse_on_resize_handle(self, mouse_pos, agent_type):
+        """Check if mouse is on the resize handle of an agent"""
+        if agent_type not in self.agent_positions:
+            return False
+            
+        agent_pos = self.agent_positions[agent_type]
+        agent_radius = self.get_agent_radius(agent_type)
+        handle_pos = self.get_resize_handle_pos(agent_pos, agent_radius)
+        
+        # Check if mouse is within the resize handle area (small square)
+        handle_size = 12
+        mouse_x, mouse_y = mouse_pos
+        handle_x, handle_y = handle_pos
+        
+        return (handle_x - handle_size//2 <= mouse_x <= handle_x + handle_size//2 and
+                handle_y - handle_size//2 <= mouse_y <= handle_y + handle_size//2)

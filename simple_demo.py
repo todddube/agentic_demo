@@ -127,17 +127,17 @@ def show_summary(orchestrator, visualizer):
     visualizer.log_message("=" * 40, "text_dim")
     
     for agent_type, agent in orchestrator.agents.items():
-        status_icon = "✅" if agent.status.value == "completed" else "⏳"
+        status_icon = "[OK]" if agent.status.value == "completed" else "[WAIT]"
         summary_line = f"{status_icon} {agent.name:15} | {agent.role:15} | Tasks: {agent.tasks_completed}"
         visualizer.log_message(summary_line, "text_secondary")
     
     total_tasks = len(orchestrator.completed_tasks)
-    visualizer.log_message(f"📈 Total tasks processed: {total_tasks}", "success")
+    visualizer.log_message(f"[TOTAL] Total tasks processed: {total_tasks}", "success")
     visualizer.log_message("=" * 40, "text_dim")
 
 def show_task_details(orchestrator, visualizer):
     """Show detailed results of completed tasks"""
-    visualizer.log_message("📝 Detailed Task Results", "info")
+    visualizer.log_message("[DETAILS] Detailed Task Results", "info")
     visualizer.log_message("=" * 50, "text_dim")
     
     for task in orchestrator.completed_tasks:
@@ -167,7 +167,7 @@ def main():
             return
         
         # Show initial agent status
-        visualizer.log_message("👥 Agent Team Ready:", "info")
+        visualizer.log_message("[TEAM] Agent Team Ready:", "info")
         for agent_type, agent in orchestrator.agents.items():
             visualizer.log_message(f"   • {agent.name} - {agent.role}", "text_secondary")
         
@@ -179,9 +179,9 @@ def main():
         visualizer.demo_state = "completed"
         visualizer.log_message("[DONE] Demo completed! The system is now ready for exploration.", "success")
         visualizer.log_message("[INFO] Graphics panel shows team network and status", "info")
-        visualizer.log_message("📝 Text panel shows all system output", "info")
+        visualizer.log_message("[INFO] Text panel shows all system output", "info")
         visualizer.log_message("[UI] Use controls: ↑↓ scroll, Space: auto-scroll, D: details", "info")
-        visualizer.log_message("⚠️ Close pygame window or press ESC to exit", "info")
+        visualizer.log_message("[EXIT] Close pygame window or press ESC to exit", "info")
     
     # Set the demo callback
     visualizer.set_demo_callback(demo_function)
