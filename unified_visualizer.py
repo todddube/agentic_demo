@@ -19,6 +19,12 @@ class AnimationType(Enum):
     ROTATE = "rotate"
     GLOW = "glow"
     PARTICLE = "particle"
+    WAVE = "wave"
+    SPIRAL = "spiral"
+    LIGHTNING = "lightning"
+    FIREWORKS = "fireworks"
+    MATRIX = "matrix"
+    RAINBOW = "rainbow"
 
 class UnifiedVisualizer:
     def __init__(self, orchestrator, width=None, height=None):
@@ -64,49 +70,113 @@ class UnifiedVisualizer:
         self.resize_start_mouse = (0, 0)
         self.agent_custom_sizes = {}  # Store custom sizes for agents
         
-        # Colors
+        # Colors with enhanced neon palette
         self.colors = {
-            'background': (15, 15, 25),
-            'panel_bg': (25, 25, 35),
-            'panel_border': (60, 60, 80),
+            'background': (5, 5, 15),           # Darker for better contrast
+            'panel_bg': (15, 15, 25),           # Darker panel background
+            'panel_border': (80, 80, 120),      # Brighter border
             'text': (255, 255, 255),
-            'text_secondary': (180, 180, 200),
-            'text_dim': (120, 120, 140),
-            'sales': (255, 107, 107),          # Red - Sales Consultant
-            'appraisal': (78, 205, 196),       # Teal - Appraisal Manager
-            'finance': (69, 183, 209),         # Blue - Finance Manager
-            'manager': (150, 206, 180),        # Green - Store Manager
-            'orchestrator': (255, 215, 0),     # Gold
-            'ollama': (138, 43, 226),          # Blue Violet - Ollama Server
-            'connection': (100, 100, 150),
-            'active': (255, 255, 0),           # Yellow for active
-            'completed': (0, 255, 0),          # Green for completed
-            'working': (255, 165, 0),          # Orange for working
-            'success': (0, 200, 0),
-            'error': (200, 0, 0),
-            'info': (100, 150, 255),
-            'request': (255, 140, 0),          # Dark orange for requests
-            'response': (50, 205, 50),         # Lime green for responses
+            'text_secondary': (200, 200, 220),   # Brighter secondary text
+            'text_dim': (140, 140, 160),        # Brighter dim text
+            'sales': (255, 69, 120),            # Hot pink - Sales Consultant
+            'appraisal': (0, 255, 200),         # Cyan - Appraisal Manager
+            'finance': (69, 183, 255),          # Electric blue - Finance Manager
+            'manager': (150, 255, 100),         # Lime green - Store Manager
+            'orchestrator': (255, 215, 0),      # Gold
+            'ollama': (147, 112, 219),          # Medium slate blue - Ollama Server
+            'connection': (100, 255, 200),      # Bright cyan connections
+            'active': (255, 255, 0),            # Yellow for active
+            'completed': (0, 255, 100),         # Bright green for completed
+            'working': (255, 165, 0),           # Orange for working
+            'success': (0, 255, 0),
+            'error': (255, 50, 50),             # Brighter red
+            'info': (100, 200, 255),            # Brighter info blue
+            'request': (255, 140, 0),           # Dark orange for requests
+            'response': (50, 255, 50),          # Bright lime green for responses
+            'neon_purple': (191, 64, 191),      # Neon purple
+            'neon_cyan': (0, 255, 255),         # Neon cyan
+            'neon_pink': (255, 20, 147),        # Deep pink
+            'neon_green': (57, 255, 20),        # Neon green
+            'neon_orange': (255, 165, 0),       # Neon orange
+            'electric_blue': (0, 191, 255),     # Electric blue
+            'laser_red': (255, 0, 80),          # Laser red
+            'matrix_green': (0, 255, 65),       # Matrix green
         }
         
-        # Text output system (initialize early for position loading messages)
+        # Initialize all the other attributes that will be needed
         self.text_lines = []
         self.max_text_lines = 50
         self.text_scroll_offset = 0
         self.auto_scroll = True
-        self.text_wrap_width = 45  # Will be updated based on font size
+        self.text_wrap_width = 45
         
         # Agent positions (circular layout in graphics panel)
         self.agent_positions = {}
         self.positions_file = "agent_positions.json"
+        
+        # Animation and visual effects
+        self.animations = {}
+        self.particles = []
+        self.time_offset = 0
+        self.wave_offset = 0
+        self.lightning_strikes = []
+        self.fireworks = []
+        self.matrix_drops = []
+        self.rainbow_hue = 0
+        self.spiral_particles = []
+        self.star_field = []
+        self.energy_rings = []
+        self.laser_beams = []
+        self.pulse_rings = []
+        
+        # Enhanced visual effects flags
+        self.show_star_field = True
+        self.show_energy_rings = True
+        self.show_laser_beams = True
+        self.show_matrix_rain = True
+        self.show_fireworks = True
+        self.animation_intensity = 1.0  # 0.0 to 2.0 for performance scaling
+        
+        # Additional attributes that may be missing
+        self.last_fps_update = 0
+        self.fps_display = 60
+        
+        # Demo state
+        self.demo_state = "start_screen"  # "start_screen", "running", "completed"
+        self.start_button_rect = None
+        self.demo_callback = None  # Callback to start the actual demo
+        self.fireworks = []
+        self.lightning_strikes = []
+        self.matrix_drops = []
+        
+        # Resizing and dragging state for panel
+        self.is_resizing = False
+        self.resize_start_x = 0
+        self.resize_original_width = 0
+        
+        # Dragging state for agent nodes
+        self.is_dragging = False
+        self.dragged_agent = None
+        self.drag_offset_x = 0
+        self.drag_offset_y = 0
+        self.drag_start_pos = None
+        
+        # Resizing state for agent nodes
+        self.is_resizing_agent = False
+        self.resized_agent = None
+        self.resize_start_size = 0
+        self.resize_start_mouse = (0, 0)
+        self.agent_custom_sizes = {}  # Store custom sizes for agents
+        
+        # Initialize remaining attributes
         self.setup_agent_positions()
         
         # Ollama interaction tracking
-        self.ollama_interactions = []  # Store recent interactions
-        self.ollama_status = "idle"    # idle, processing, error
+        self.ollama_interactions = []
+        self.ollama_status = "idle"
         self.ollama_request_count = 0
         self.ollama_last_activity = None
-        self.interaction_animations = []  # For animated lines between agents and Ollama
+        self.interaction_animations = []
         
         # Animation state
         self.animations = {}
@@ -114,13 +184,21 @@ class UnifiedVisualizer:
         self.time_offset = 0
         
         # Floating response windows
-        self.floating_responses = []  # List of floating response windows
-        self.show_floating_responses = True  # Toggle for floating responses
+        self.floating_responses = []
+        self.show_floating_responses = True
         
         # Task display
         self.current_task = None
         self.task_history = []
         self.task_queue = queue.Queue()
+        
+        # Demo state
+        self.demo_state = "start_screen"
+        self.demo_callback = None
+        self.start_button_rect = None
+        
+        # UI State
+        self.show_details = True
         
         # Fonts - will be updated based on panel size
         self.base_font_sizes = {
@@ -132,8 +210,8 @@ class UnifiedVisualizer:
         }
         
         # Font scaling factors (1.0 = normal size)
-        self.main_font_scale = 1.0  # For main graphics panel fonts
-        self.output_font_scale = 1.0  # For output panel text
+        self.main_font_scale = 1.0
+        self.output_font_scale = 1.0
         self.min_font_scale = 0.5
         self.max_font_scale = 2.0
         self.font_scale_step = 0.1
@@ -141,27 +219,141 @@ class UnifiedVisualizer:
         # Try to use a better monospace font if available
         self.mono_font_name = None
         try:
-            pygame.font.SysFont('consolas', 16)  # Test if Consolas is available
+            pygame.font.SysFont('consolas', 16)
             self.mono_font_name = 'consolas'
         except:
             try:
-                pygame.font.SysFont('courier', 16)  # Test if Courier is available
+                pygame.font.SysFont('courier', 16)
                 self.mono_font_name = 'courier'
             except:
                 self.mono_font_name = None
         
         # Now update fonts
         self.update_fonts()
+    
+    def init_star_field(self):
+        """Initialize the animated star field background"""
+        for _ in range(100):
+            star = {
+                'x': random.randint(0, self.width),
+                'y': random.randint(0, self.height),
+                'size': random.uniform(0.5, 3.0),
+                'speed': random.uniform(0.1, 0.8),
+                'brightness': random.uniform(0.3, 1.0),
+                'twinkle_phase': random.uniform(0, 2 * math.pi),
+                'color': random.choice(['white', 'cyan', 'blue', 'purple'])
+            }
+            self.star_field.append(star)
+    
+    def add_energy_ring(self, pos, color, max_radius=100):
+        """Add an energy ring effect"""
+        ring = {
+            'x': pos[0],
+            'y': pos[1],
+            'radius': 0,
+            'max_radius': max_radius,
+            'color': color,
+            'life': 60,
+            'thickness': 3
+        }
+        self.energy_rings.append(ring)
+    
+    def add_laser_beam(self, start_pos, end_pos, color, duration=30):
+        """Add a laser beam effect"""
+        beam = {
+            'start': start_pos,
+            'end': end_pos,
+            'color': color,
+            'life': duration,
+            'intensity': 255,
+            'thickness': random.randint(2, 5)
+        }
+        self.laser_beams.append(beam)
+    
+    def add_firework(self, pos, color):
+        """Add a firework explosion"""
+        firework = {
+            'x': pos[0],
+            'y': pos[1],
+            'particles': [],
+            'life': 120,
+            'color': color
+        }
         
-        # UI State
-        self.show_details = True
-        self.last_fps_update = 0
-        self.fps_display = 60
+        # Create explosion particles
+        for _ in range(20):
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(2, 8)
+            particle = {
+                'x': pos[0],
+                'y': pos[1],
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'life': random.randint(30, 80),
+                'alpha': 255,
+                'size': random.uniform(2, 5)
+            }
+            firework['particles'].append(particle)
         
-        # Start screen state
-        self.demo_state = "start_screen"  # "start_screen", "running", "completed"
-        self.start_button_rect = None
-        self.demo_callback = None  # Callback to start the actual demo
+        self.fireworks.append(firework)
+    
+    def add_matrix_drop(self):
+        """Add a matrix-style digital rain drop"""
+        drop = {
+            'x': random.randint(0, self.graphics_width),
+            'y': 0,
+            'speed': random.uniform(2, 6),
+            'length': random.randint(5, 15),
+            'chars': [random.choice('0123456789ABCDEF') for _ in range(15)],
+            'alpha': 255
+        }
+        self.matrix_drops.append(drop)
+    
+    def add_lightning_strike(self, start_pos, end_pos):
+        """Add a lightning strike effect"""
+        # Create jagged lightning path
+        segments = []
+        steps = 10
+        for i in range(steps):
+            t = i / steps
+            x = start_pos[0] + (end_pos[0] - start_pos[0]) * t
+            y = start_pos[1] + (end_pos[1] - start_pos[1]) * t
+            
+            # Add random jitter
+            if i > 0 and i < steps - 1:
+                x += random.uniform(-15, 15)
+                y += random.uniform(-15, 15)
+            
+            segments.append((x, y))
+        
+        lightning = {
+            'segments': segments,
+            'life': 20,
+            'intensity': 255,
+            'branches': []
+        }
+        
+        # Add random branches
+        for _ in range(random.randint(1, 3)):
+            branch_start = random.choice(segments[1:-1])
+            branch_end = (branch_start[0] + random.uniform(-30, 30), 
+                         branch_start[1] + random.uniform(-30, 30))
+            lightning['branches'].append([branch_start, branch_end])
+        
+        self.lightning_strikes.append(lightning)
+    
+    def add_pulse_ring(self, pos, color, max_radius=150):
+        """Add a pulsing ring effect"""
+        ring = {
+            'x': pos[0],
+            'y': pos[1],
+            'radius': 0,
+            'max_radius': max_radius,
+            'color': color,
+            'life': 90,
+            'pulse_speed': 0.15
+        }
+        self.pulse_rings.append(ring)
     
     def setup_agent_positions(self):
         """Setup agent positions - load from file if available, otherwise use default circular layout"""
@@ -315,16 +507,45 @@ class UnifiedVisualizer:
             self.ollama_status = "processing"
             self.add_text(f"[AI-REQ] Ollama Request #{data['request_id']}: {data['model']} (prompt: {data['prompt_length']} chars)", "request")
             
+            # Add spectacular request effects
+            agent_type = data.get('agent_type', 'orchestrator')
+            if agent_type in self.agent_positions:
+                agent_pos = self.agent_positions[agent_type]
+                ollama_pos = self.agent_positions['ollama']
+                
+                # Add lightning strike effect
+                self.add_lightning_strike(agent_pos, ollama_pos)
+                
+                # Add energy ring at agent
+                self.add_energy_ring(agent_pos, self.colors['request'], 80)
+                
+                # Add pulse ring at Ollama
+                self.add_pulse_ring(ollama_pos, self.colors['neon_purple'], 100)
+            
             # Add animation for request
-            self.add_interaction_animation("request", data.get('agent_type', 'orchestrator'))
+            self.add_interaction_animation("request", agent_type)
             
         elif interaction_type == "response":
             if data['success']:
                 self.ollama_status = "idle"
                 self.add_text(f"[OK] Ollama Response #{data['request_id']}: {data['response_length']} chars", "response")
                 
-                # Add floating response window for Ollama response
+                # Add spectacular response effects
                 agent_type = data.get('agent_type', 'orchestrator')
+                if agent_type in self.agent_positions:
+                    agent_pos = self.agent_positions[agent_type]
+                    ollama_pos = self.agent_positions['ollama']
+                    
+                    # Add laser beam from Ollama to agent
+                    self.add_laser_beam(ollama_pos, agent_pos, self.colors['response'], 60)
+                    
+                    # Add energy ring at agent
+                    self.add_energy_ring(agent_pos, self.colors['response'], 90)
+                    
+                    # Add spiral particles around agent
+                    self.add_spiral_particles(agent_pos, self.colors['neon_green'], 12)
+                
+                # Add floating response window for Ollama response
                 if 'response' in data and data['response']:
                     self.add_floating_response(agent_type, f"[AI] Ollama: {data['response'][:60]}...")
                 
@@ -335,8 +556,20 @@ class UnifiedVisualizer:
             self.ollama_status = "error"
             self.add_text(f"[ERROR] Ollama Error #{data['request_id']}: {data['error']}", "error")
             
+            # Add error effects
+            agent_type = data.get('agent_type', 'orchestrator')
+            if agent_type in self.agent_positions:
+                agent_pos = self.agent_positions[agent_type]
+                ollama_pos = self.agent_positions['ollama']
+                
+                # Add red lightning strike
+                self.add_lightning_strike(ollama_pos, agent_pos)
+                
+                # Add red energy ring
+                self.add_energy_ring(agent_pos, self.colors['error'], 70)
+            
             # Add error animation
-            self.add_interaction_animation("error", data.get('agent_type', 'orchestrator'))
+            self.add_interaction_animation("error", agent_type)
         
         # Store interaction for history
         self.ollama_interactions.append({
@@ -467,6 +700,32 @@ class UnifiedVisualizer:
             self.show_floating_responses = not self.show_floating_responses
             status = "ON" if self.show_floating_responses else "OFF"
             self.add_text(f"[FLOAT] Floating response windows: {status}", "info")
+        elif key == pygame.K_m:
+            # M key to toggle matrix rain
+            self.show_matrix_rain = not self.show_matrix_rain
+            status = "ON" if self.show_matrix_rain else "OFF"
+            self.add_text(f"[MATRIX] Matrix rain effect: {status}", "info")
+        elif key == pygame.K_s:
+            # S key to toggle star field
+            self.show_star_field = not self.show_star_field
+            status = "ON" if self.show_star_field else "OFF"
+            self.add_text(f"[STARS] Star field effect: {status}", "info")
+        elif key == pygame.K_x:
+            # X key to create fireworks at random positions
+            for _ in range(3):
+                x = random.randint(100, self.graphics_width - 100)
+                y = random.randint(100, self.height - 100)
+                color = random.choice([self.colors['neon_cyan'], self.colors['neon_pink'], 
+                                     self.colors['neon_green'], self.colors['neon_orange']])
+                self.add_firework((x, y), color)
+            self.add_text("[BOOM] Fireworks activated! 🎆", "info")
+        elif key == pygame.K_l:
+            # L key to create lightning strikes
+            for _ in range(2):
+                x1, y1 = random.randint(50, self.graphics_width - 50), random.randint(50, self.height // 2)
+                x2, y2 = random.randint(50, self.graphics_width - 50), random.randint(self.height // 2, self.height - 50)
+                self.add_lightning_strike((x1, y1), (x2, y2))
+            self.add_text("[ZAP] Lightning strikes activated! ⚡", "info")
         elif key == pygame.K_ESCAPE:
             # ESC key to quit
             self.add_text("[EXIT] ESC pressed - shutting down application...", "info")
@@ -665,6 +924,8 @@ class UnifiedVisualizer:
     def update_animations(self):
         """Update all animations"""
         self.time_offset = time.time()
+        self.wave_offset += 0.1
+        self.rainbow_hue = (self.rainbow_hue + 2) % 360
         
         # Update particles
         self.particles = [p for p in self.particles if p['life'] > 0]
@@ -683,6 +944,75 @@ class UnifiedVisualizer:
             # Clamp progress
             anim['progress'] = max(0.0, min(1.0, anim['progress']))
         
+        # Update star field
+        if self.show_star_field:
+            for star in self.star_field:
+                star['y'] += star['speed']
+                star['twinkle_phase'] += 0.1
+                if star['y'] > self.height:
+                    star['y'] = -10
+                    star['x'] = random.randint(0, self.width)
+        
+        # Update energy rings
+        self.energy_rings = [ring for ring in self.energy_rings if ring['life'] > 0]
+        for ring in self.energy_rings:
+            ring['radius'] += ring['max_radius'] / 60
+            ring['life'] -= 1
+            if ring['radius'] > ring['max_radius']:
+                ring['radius'] = ring['max_radius']
+        
+        # Update laser beams
+        self.laser_beams = [beam for beam in self.laser_beams if beam['life'] > 0]
+        for beam in self.laser_beams:
+            beam['life'] -= 1
+            beam['intensity'] = max(0, beam['intensity'] - 8)
+        
+        # Update fireworks
+        self.fireworks = [fw for fw in self.fireworks if fw['life'] > 0]
+        for firework in self.fireworks:
+            firework['life'] -= 1
+            firework['particles'] = [p for p in firework['particles'] if p['life'] > 0]
+            for particle in firework['particles']:
+                particle['x'] += particle['vx']
+                particle['y'] += particle['vy']
+                particle['vy'] += 0.1  # Gravity
+                particle['life'] -= 1
+                particle['alpha'] = max(0, particle['alpha'] - 4)
+        
+        # Update matrix drops
+        self.matrix_drops = [drop for drop in self.matrix_drops if drop['y'] < self.height + 50]
+        for drop in self.matrix_drops:
+            drop['y'] += drop['speed']
+            drop['alpha'] = max(0, drop['alpha'] - 2)
+        
+        # Add new matrix drops occasionally
+        if self.show_matrix_rain and random.random() < 0.1:
+            self.add_matrix_drop()
+        
+        # Update lightning strikes
+        self.lightning_strikes = [strike for strike in self.lightning_strikes if strike['life'] > 0]
+        for strike in self.lightning_strikes:
+            strike['life'] -= 1
+            strike['intensity'] = max(0, strike['intensity'] - 12)
+        
+        # Update pulse rings
+        self.pulse_rings = [ring for ring in self.pulse_rings if ring['life'] > 0]
+        for ring in self.pulse_rings:
+            ring['radius'] += ring['pulse_speed'] * ring['max_radius']
+            ring['life'] -= 1
+            if ring['radius'] > ring['max_radius']:
+                ring['radius'] = 0
+        
+        # Update spiral particles
+        self.spiral_particles = [p for p in self.spiral_particles if p['life'] > 0]
+        for particle in self.spiral_particles:
+            particle['angle'] += particle['angular_speed']
+            particle['radius'] += particle['radial_speed']
+            particle['x'] = particle['center_x'] + particle['radius'] * math.cos(particle['angle'])
+            particle['y'] = particle['center_y'] + particle['radius'] * math.sin(particle['angle'])
+            particle['life'] -= 1
+            particle['alpha'] = max(0, particle['alpha'] - 2)
+        
         # Update Ollama status based on recent activity
         if self.ollama_last_activity:
             time_since_activity = time.time() - self.ollama_last_activity
@@ -699,8 +1029,12 @@ class UnifiedVisualizer:
     
     def draw_frame(self):
         """Draw a complete frame"""
-        # Clear screen
+        # Clear screen with animated background
         self.screen.fill(self.colors['background'])
+        
+        # Draw animated background effects
+        self.draw_star_field()
+        self.draw_background_waves()
         
         # Draw panels
         self.draw_graphics_panel()
@@ -711,6 +1045,166 @@ class UnifiedVisualizer:
         
         # Update display
         pygame.display.flip()
+    
+    def draw_star_field(self):
+        """Draw animated star field background"""
+        if not self.show_star_field:
+            return
+            
+        for star in self.star_field:
+            # Twinkling effect
+            brightness = star['brightness'] + 0.3 * math.sin(star['twinkle_phase'])
+            brightness = max(0.2, min(1.0, brightness))
+            
+            # Color variations
+            if star['color'] == 'cyan':
+                color = (int(brightness * 0), int(brightness * 255), int(brightness * 255))
+            elif star['color'] == 'blue':
+                color = (int(brightness * 100), int(brightness * 100), int(brightness * 255))
+            elif star['color'] == 'purple':
+                color = (int(brightness * 200), int(brightness * 100), int(brightness * 255))
+            else:  # white
+                color = (int(brightness * 255), int(brightness * 255), int(brightness * 255))
+            
+            # Draw star with size variation
+            if star['size'] > 2:
+                pygame.draw.circle(self.screen, color, (int(star['x']), int(star['y'])), int(star['size']))
+            else:
+                pygame.draw.circle(self.screen, color, (int(star['x']), int(star['y'])), 1)
+    
+    def draw_background_waves(self):
+        """Draw animated wave patterns in the background"""
+        wave_colors = [
+            (self.colors['neon_cyan'][0], self.colors['neon_cyan'][1], self.colors['neon_cyan'][2], 30),
+            (self.colors['neon_purple'][0], self.colors['neon_purple'][1], self.colors['neon_purple'][2], 20),
+            (self.colors['electric_blue'][0], self.colors['electric_blue'][1], self.colors['electric_blue'][2], 25)
+        ]
+        
+        for i, (r, g, b, alpha) in enumerate(wave_colors):
+            wave_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            
+            # Create sine wave pattern
+            for x in range(0, self.width, 5):
+                y1 = int(self.height * 0.3 + 50 * math.sin((x + self.wave_offset * 20 + i * 60) * 0.01))
+                y2 = int(self.height * 0.7 + 30 * math.sin((x + self.wave_offset * 15 + i * 80) * 0.008))
+                
+                # Draw wave lines (pygame.draw.line doesn't accept alpha in color tuple)
+                if x > 0:
+                    pygame.draw.line(wave_surface, (r, g, b), (x-5, prev_y1), (x, y1), 2)
+                    pygame.draw.line(wave_surface, (r, g, b), (x-5, prev_y2), (x, y2), 2)
+                
+                prev_y1, prev_y2 = y1, y2
+            
+            self.screen.blit(wave_surface, (0, 0))
+    
+    def draw_energy_rings(self):
+        """Draw energy ring effects"""
+        for ring in self.energy_rings:
+            alpha = int(255 * (ring['life'] / 60))
+            if alpha > 0:
+                ring_surface = pygame.Surface((ring['radius'] * 2, ring['radius'] * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ring_surface, (*ring['color'], alpha), 
+                                 (ring['radius'], ring['radius']), ring['radius'], ring['thickness'])
+                self.screen.blit(ring_surface, (ring['x'] - ring['radius'], ring['y'] - ring['radius']))
+    
+    def draw_laser_beams(self):
+        """Draw laser beam effects"""
+        for beam in self.laser_beams:
+            if beam['intensity'] > 0:
+                alpha = beam['intensity']
+                beam_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+                
+                # Draw main beam
+                pygame.draw.line(beam_surface, (*beam['color'], alpha), 
+                               beam['start'], beam['end'], beam['thickness'])
+                
+                # Draw beam glow
+                pygame.draw.line(beam_surface, (*beam['color'], alpha // 3), 
+                               beam['start'], beam['end'], beam['thickness'] * 3)
+                
+                self.screen.blit(beam_surface, (0, 0))
+    
+    def draw_fireworks(self):
+        """Draw firework effects"""
+        for firework in self.fireworks:
+            for particle in firework['particles']:
+                if particle['alpha'] > 0:
+                    particle_surface = pygame.Surface((int(particle['size']) * 2, int(particle['size']) * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(particle_surface, (*firework['color'], int(particle['alpha'])), 
+                                     (int(particle['size']), int(particle['size'])), int(particle['size']))
+                    self.screen.blit(particle_surface, (int(particle['x'] - particle['size']), int(particle['y'] - particle['size'])))
+    
+    def draw_matrix_rain(self):
+        """Draw matrix-style digital rain"""
+        if not self.show_matrix_rain:
+            return
+            
+        for drop in self.matrix_drops:
+            if drop['alpha'] > 0:
+                for i, char in enumerate(drop['chars']):
+                    char_y = drop['y'] - i * 15
+                    if char_y > 0 and char_y < self.height:
+                        alpha = max(0, drop['alpha'] - i * 20)
+                        if alpha > 0:
+                            char_surface = self.font_small.render(char, True, (*self.colors['matrix_green'], alpha))
+                            self.screen.blit(char_surface, (drop['x'], char_y))
+    
+    def draw_lightning_strikes(self):
+        """Draw lightning strike effects"""
+        for strike in self.lightning_strikes:
+            if strike['intensity'] > 0:
+                lightning_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+                
+                # Draw main lightning bolt
+                for i in range(len(strike['segments']) - 1):
+                    start = strike['segments'][i]
+                    end = strike['segments'][i + 1]
+                    pygame.draw.line(lightning_surface, (255, 255, 255, strike['intensity']), 
+                                   start, end, 3)
+                
+                # Draw branches
+                for branch in strike['branches']:
+                    pygame.draw.line(lightning_surface, (255, 255, 255, strike['intensity'] // 2), 
+                                   branch[0], branch[1], 2)
+                
+                self.screen.blit(lightning_surface, (0, 0))
+    
+    def draw_pulse_rings(self):
+        """Draw pulsing ring effects"""
+        for ring in self.pulse_rings:
+            alpha = int(255 * (ring['life'] / 90))
+            if alpha > 0 and ring['radius'] > 0:
+                ring_surface = pygame.Surface((ring['radius'] * 2, ring['radius'] * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ring_surface, (*ring['color'], alpha), 
+                                 (ring['radius'], ring['radius']), ring['radius'], 2)
+                self.screen.blit(ring_surface, (ring['x'] - ring['radius'], ring['y'] - ring['radius']))
+    
+    def draw_spiral_particles(self):
+        """Draw spiral particle effects"""
+        for particle in self.spiral_particles:
+            if particle['alpha'] > 0:
+                particle_surface = pygame.Surface((8, 8), pygame.SRCALPHA)
+                pygame.draw.circle(particle_surface, (*particle['color'], int(particle['alpha'])), 
+                                 (4, 4), 4)
+                self.screen.blit(particle_surface, (int(particle['x'] - 4), int(particle['y'] - 4)))
+    
+    def add_spiral_particles(self, center_pos, color, count=10):
+        """Add spiral particles around a center point"""
+        for i in range(count):
+            particle = {
+                'center_x': center_pos[0],
+                'center_y': center_pos[1],
+                'angle': random.uniform(0, 2 * math.pi),
+                'radius': random.uniform(5, 15),
+                'angular_speed': random.uniform(-0.2, 0.2),
+                'radial_speed': random.uniform(0.5, 2.0),
+                'x': center_pos[0],
+                'y': center_pos[1],
+                'color': color,
+                'alpha': 255,
+                'life': 120
+            }
+            self.spiral_particles.append(particle)
     
     def draw_panel_separator(self):
         """Draw the resizable panel separator"""
@@ -754,11 +1248,23 @@ class UnifiedVisualizer:
             title_rect = title.get_rect(centerx=self.graphics_width//2, y=20)
             self.screen.blit(title, title_rect)
             
+            # Draw matrix rain effect
+            self.draw_matrix_rain()
+            
             # Draw connections between agents
             self.draw_connections()
             
             # Draw interaction animations
             self.draw_interaction_animations()
+            
+            # Draw energy rings
+            self.draw_energy_rings()
+            
+            # Draw laser beams
+            self.draw_laser_beams()
+            
+            # Draw lightning strikes
+            self.draw_lightning_strikes()
             
             # Draw orchestrator
             self.draw_orchestrator()
@@ -771,6 +1277,15 @@ class UnifiedVisualizer:
             
             # Draw particles
             self.draw_particles()
+            
+            # Draw spiral particles
+            self.draw_spiral_particles()
+            
+            # Draw pulse rings
+            self.draw_pulse_rings()
+            
+            # Draw fireworks
+            self.draw_fireworks()
             
             # Draw floating response windows
             self.draw_floating_responses()
@@ -786,68 +1301,123 @@ class UnifiedVisualizer:
         center_x = self.graphics_width // 2
         center_y = self.height // 2
         
-        # Main title
-        title = self.font_title.render("CarMax Store Demo", True, self.colors['text'])
+        # Add some background effects for the start screen
+        self.add_random_effects()
+        
+        # Animated title with rainbow effect
+        hue = (self.rainbow_hue + 0) % 360
+        title_color = self.hsv_to_rgb(hue, 0.8, 1.0)
+        title = self.font_title.render("🚗 CarMax Store Demo 🚗", True, title_color)
         title_rect = title.get_rect(centerx=center_x, y=center_y - 120)
+        
+        # Add title glow effect
+        for i in range(5):
+            glow_alpha = 50 - i * 8
+            glow_surface = pygame.Surface((title_rect.width + i*4, title_rect.height + i*4), pygame.SRCALPHA)
+            glow_title = self.font_title.render("🚗 CarMax Store Demo 🚗", True, (*title_color, glow_alpha))
+            glow_rect = glow_title.get_rect(centerx=center_x, y=center_y - 120 - i*2)
+            self.screen.blit(glow_title, glow_rect)
+        
         self.screen.blit(title, title_rect)
         
-        # Subtitle
-        subtitle = self.font_large.render("Multi-Agent AI System", True, self.colors['text_secondary'])
+        # Animated subtitle with pulsing effect
+        pulse = 1.0 + 0.3 * math.sin(self.time_offset * 3)
+        subtitle_color = (min(255, max(0, int(self.colors['neon_cyan'][0] * pulse))), 
+                         min(255, max(0, int(self.colors['neon_cyan'][1] * pulse))), 
+                         min(255, max(0, int(self.colors['neon_cyan'][2] * pulse))))
+        subtitle = self.font_large.render("⚡ Multi-Agent AI System ⚡", True, subtitle_color)
         subtitle_rect = subtitle.get_rect(centerx=center_x, y=center_y - 80)
         self.screen.blit(subtitle, subtitle_rect)
         
-        # Team description
+        # Team description with animated colors
         team_lines = [
-            "Team Members:",
-            "🚗 Mike Rodriguez - Sales Pro",
-            "📊 Sarah Chen - Vehicle Expert", 
-            "💰 David Williams - Finance Wizard",
-            "🏆 Jennifer Thompson - Team Leader",
-            "[AI] Ollama AI Server - llama3.2"
+            ("🎯 Team Members:", self.colors['neon_orange']),
+            ("🚗 Mike Rodriguez - Sales Pro", self.colors['sales']),
+            ("📊 Sarah Chen - Vehicle Expert", self.colors['appraisal']), 
+            ("💰 David Williams - Finance Wizard", self.colors['finance']),
+            ("🏆 Jennifer Thompson - Team Leader", self.colors['manager']),
+            ("🤖 Ollama AI Server - llama3.2", self.colors['ollama'])
         ]
         
-        for i, line in enumerate(team_lines):
-            color = self.colors['text'] if i == 0 else self.colors['text_secondary']
+        for i, (line, color) in enumerate(team_lines):
             font = self.font_medium if i == 0 else self.font_small
-            text = font.render(line, True, color)
+            # Add subtle animation to text
+            animated_color = (
+                int(color[0] + 20 * math.sin(self.time_offset * 2 + i)),
+                int(color[1] + 20 * math.sin(self.time_offset * 2 + i + 1)),
+                int(color[2] + 20 * math.sin(self.time_offset * 2 + i + 2))
+            )
+            animated_color = tuple(max(0, min(255, c)) for c in animated_color)
+            
+            text = font.render(line, True, animated_color)
             text_rect = text.get_rect(centerx=center_x, y=center_y - 20 + i * 20)
             self.screen.blit(text, text_rect)
         
-        # Start button
-        button_width = 200
-        button_height = 50
+        # Animated start button with spectacular effects
+        button_width = 250
+        button_height = 60
         button_x = center_x - button_width // 2
         button_y = center_y + 80
         
         self.start_button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
         
-        # Button glow effect
-        glow_color = (*self.colors['success'], 100)
-        for i in range(3):
-            glow_rect = pygame.Rect(button_x - i*2, button_y - i*2, button_width + i*4, button_height + i*4)
-            glow_surface = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surface, glow_color, (0, 0, glow_rect.width, glow_rect.height), border_radius=10)
-            self.screen.blit(glow_surface, glow_rect)
+        # Button rainbow glow effect
+        button_pulse = 1.0 + 0.4 * math.sin(self.time_offset * 4)
+        for i in range(6):
+            hue = (self.rainbow_hue + i * 60) % 360
+            glow_color = self.hsv_to_rgb(hue, 0.8, 0.6)
+            glow_alpha = int(80 * button_pulse - i * 10)
+            if glow_alpha > 0:
+                glow_rect = pygame.Rect(button_x - i*3, button_y - i*3, button_width + i*6, button_height + i*6)
+                glow_surface = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surface, (*glow_color, glow_alpha), (0, 0, glow_rect.width, glow_rect.height), border_radius=15)
+                self.screen.blit(glow_surface, glow_rect)
         
-        # Main button
-        pygame.draw.rect(self.screen, self.colors['success'], self.start_button_rect, border_radius=10)
-        pygame.draw.rect(self.screen, self.colors['text'], self.start_button_rect, 3, border_radius=10)
+        # Main button with gradient effect
+        button_hue = (self.rainbow_hue + 120) % 360
+        button_color = self.hsv_to_rgb(button_hue, 0.7, 1.0)
+        pygame.draw.rect(self.screen, button_color, self.start_button_rect, border_radius=15)
+        pygame.draw.rect(self.screen, self.colors['text'], self.start_button_rect, 4, border_radius=15)
         
-        # Button text
-        button_text = self.font_large.render("START DEMO", True, self.colors['text'])
+        # Button text with glow
+        button_text = self.font_large.render("🚀 START DEMO 🚀", True, self.colors['text'])
         button_text_rect = button_text.get_rect(center=self.start_button_rect.center)
         self.screen.blit(button_text, button_text_rect)
         
-        # Instructions
+        # Instructions with animated colors
         instructions = [
-            "Click the button above or press SPACE to start",
-            "ESC to quit at any time"
+            "✨ Click the button above or press SPACE to start ✨",
+            "⚡ ESC to quit at any time ⚡"
         ]
         
         for i, instruction in enumerate(instructions):
-            text = self.font_small.render(instruction, True, self.colors['text_dim'])
+            color_hue = (self.rainbow_hue + i * 180) % 360
+            color = self.hsv_to_rgb(color_hue, 0.5, 0.8)
+            text = self.font_small.render(instruction, True, color)
             text_rect = text.get_rect(centerx=center_x, y=center_y + 160 + i * 20)
             self.screen.blit(text, text_rect)
+    
+    def hsv_to_rgb(self, h, s, v):
+        """Convert HSV color to RGB"""
+        import colorsys
+        r, g, b = colorsys.hsv_to_rgb(h / 360.0, s, v)
+        return (int(r * 255), int(g * 255), int(b * 255))
+    
+    def add_random_effects(self):
+        """Add random spectacular effects to the start screen"""
+        # Add random energy rings
+        if random.random() < 0.05:
+            x = random.randint(50, self.graphics_width - 50)
+            y = random.randint(50, self.height - 50)
+            color = random.choice([self.colors['neon_cyan'], self.colors['neon_purple'], self.colors['neon_pink']])
+            self.add_energy_ring((x, y), color, random.randint(60, 120))
+        
+        # Add random spiral particles
+        if random.random() < 0.03:
+            x = random.randint(50, self.graphics_width - 50)
+            y = random.randint(50, self.height - 50)
+            color = random.choice([self.colors['neon_green'], self.colors['electric_blue'], self.colors['neon_orange']])
+            self.add_spiral_particles((x, y), color, random.randint(5, 12))
     
     def draw_text_panel(self):
         """Draw the text output panel"""
@@ -927,7 +1497,7 @@ class UnifiedVisualizer:
     
     def draw_text_controls(self):
         """Draw text panel controls"""
-        controls_y = self.height - 144  # Moved up to accommodate more lines
+        controls_y = self.height - 180  # Moved up to accommodate more lines
         control_text = [
             "Controls: ↑↓ Scroll | Home/End | Space: Auto-scroll | D: Details | ESC: Quit",
             "Font scaling: Ctrl++ / Ctrl+- (hover over panel to select) | Ctrl+0 to reset",
@@ -935,8 +1505,10 @@ class UnifiedVisualizer:
             "Drag agents: Click and drag agent nodes to reposition them",
             "Resize agents: Drag the resize handle (◢) at bottom-right of each agent",
             "Reset layout: Press R to restore default agent positions and sizes",
-            "Toggle floating responses: Press F to enable/disable response windows",
-            f"Auto-scroll: {'ON' if self.auto_scroll else 'OFF'} | Floating: {'ON' if self.show_floating_responses else 'OFF'} | Lines: {len(self.text_lines)}",
+            "Toggle effects: F: Floating responses | M: Matrix rain | S: Star field",
+            "Special effects: X: Fireworks! 🎆 | L: Lightning strikes! ⚡",
+            f"Effects: Stars: {'ON' if self.show_star_field else 'OFF'} | Matrix: {'ON' if self.show_matrix_rain else 'OFF'} | Floating: {'ON' if self.show_floating_responses else 'OFF'}",
+            f"Auto-scroll: {'ON' if self.auto_scroll else 'OFF'} | Lines: {len(self.text_lines)}",
             f"Font scales - Main: {self.main_font_scale:.1f}x | Output: {self.output_font_scale:.1f}x"
         ]
         
@@ -1108,15 +1680,15 @@ class UnifiedVisualizer:
                 pygame.draw.circle(particle_surface, color_with_alpha, (6, 6), 6)
                 self.screen.blit(particle_surface, (int(current_x - 6), int(current_y - 6)))
                 
-                # Draw completed segments as fading trails
+                # Draw completed segments as fading trails (no alpha in direct screen drawing)
                 for i in range(current_segment_index):
                     segment = segments[i]
                     trail_alpha = int(alpha * 0.3)
                     if trail_alpha > 20:
-                        pygame.draw.line(self.screen, (*anim['color'], trail_alpha), 
+                        pygame.draw.line(self.screen, anim['color'], 
                                        segment['start'], segment['end'], 2)
                 
-                # Draw current segment trail
+                # Draw current segment trail (no alpha in direct screen drawing)
                 if segment_progress > 0.1:
                     trail_length = min(0.4, segment_progress)
                     trail_start_x = start_pos[0] + (end_pos[0] - start_pos[0]) * max(0, segment_progress - trail_length)
@@ -1124,7 +1696,7 @@ class UnifiedVisualizer:
                     
                     trail_alpha = int(alpha * 0.6)
                     if trail_alpha > 20:
-                        pygame.draw.line(self.screen, (*anim['color'], trail_alpha),
+                        pygame.draw.line(self.screen, anim['color'],
                                        (trail_start_x, trail_start_y), (current_x, current_y), 3)
                 
                 # Add glow effect at orchestrator when particle passes through (for multi-segment animations)
@@ -1199,65 +1771,131 @@ class UnifiedVisualizer:
                              (glow_radius, glow_radius), glow_radius)
             self.screen.blit(glow_surface, (pos[0] - glow_radius, pos[1] - glow_radius))
         
-        # Draw role-specific background and main circle
+        # Draw role-specific background and main circle with enhanced styling
         if agent_type == 'sales':
-            # Sales: Car icon with handshake theme
+            # Sales: Car icon with handshake theme - Enhanced with gradient effect
+            # Create gradient background
+            for i in range(radius):
+                alpha = int(255 * (1 - i / radius))
+                gradient_color = (status_color[0], status_color[1], status_color[2], alpha)
+                gradient_surface = pygame.Surface((2, 2), pygame.SRCALPHA)
+                pygame.draw.circle(gradient_surface, gradient_color, (1, 1), 1)
+                self.screen.blit(gradient_surface, (pos[0] - 1, pos[1] - 1 - i))
+            
             pygame.draw.circle(self.screen, status_color, pos, radius)
             pygame.draw.circle(self.screen, self.colors['text'], pos, radius, 3)
             
-            # Draw car icon
-            car_text = self.font_large.render("CAR", True, self.colors['text'])
+            # Draw enhanced car icon with animations
+            car_scale = 1.0 + 0.2 * math.sin(self.time_offset * 4) if agent.status.value == 'working' else 1.0
+            car_text = self.font_large.render("🚗", True, self.colors['text'])
             car_rect = car_text.get_rect(center=(pos[0], pos[1] - 8))
-            self.screen.blit(car_text, car_rect)
+            if car_scale != 1.0:
+                scaled_car = pygame.transform.scale(car_text, (int(car_rect.width * car_scale), int(car_rect.height * car_scale)))
+                car_rect = scaled_car.get_rect(center=(pos[0], pos[1] - 8))
+                self.screen.blit(scaled_car, car_rect)
+            else:
+                self.screen.blit(car_text, car_rect)
             
-            # Draw handshake symbol smaller below
+            # Draw handshake symbol with glow
             handshake_text = self.font_small.render("SALE", True, self.colors['text'])
             handshake_rect = handshake_text.get_rect(center=(pos[0], pos[1] + 12))
+            # Add glow effect
+            glow_text = self.font_small.render("SALE", True, (*status_color, 100))
+            for offset in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+                glow_rect = handshake_text.get_rect(center=(pos[0] + offset[0], pos[1] + 12 + offset[1]))
+                self.screen.blit(glow_text, glow_rect)
             self.screen.blit(handshake_text, handshake_rect)
             
         elif agent_type == 'appraisal':
-            # Appraisal: Clipboard/magnifying glass theme with data
+            # Appraisal: Enhanced clipboard/magnifying glass theme with data visualization
             pygame.draw.circle(self.screen, status_color, pos, radius)
             pygame.draw.circle(self.screen, self.colors['text'], pos, radius, 3)
             
-            # Draw clipboard icon
-            clipboard_text = self.font_large.render("DOC", True, self.colors['text'])
+            # Draw animated clipboard icon
+            clipboard_scale = 1.0 + 0.15 * math.sin(self.time_offset * 3) if agent.status.value == 'working' else 1.0
+            clipboard_text = self.font_large.render("📋", True, self.colors['text'])
             clipboard_rect = clipboard_text.get_rect(center=(pos[0], pos[1] - 8))
-            self.screen.blit(clipboard_text, clipboard_rect)
+            if clipboard_scale != 1.0:
+                scaled_clipboard = pygame.transform.scale(clipboard_text, (int(clipboard_rect.width * clipboard_scale), int(clipboard_rect.height * clipboard_scale)))
+                clipboard_rect = scaled_clipboard.get_rect(center=(pos[0], pos[1] - 8))
+                self.screen.blit(scaled_clipboard, clipboard_rect)
+            else:
+                self.screen.blit(clipboard_text, clipboard_rect)
             
-            # Draw magnifying glass
+            # Draw magnifying glass with sparkle effect
             mag_text = self.font_small.render("EVAL", True, self.colors['text'])
             mag_rect = mag_text.get_rect(center=(pos[0], pos[1] + 12))
+            # Add sparkle effect for working status
+            if agent.status.value == 'working':
+                sparkle_color = (255, 255, 255, 150)
+                sparkle_positions = [
+                    (pos[0] - 15, pos[1] + 5),
+                    (pos[0] + 15, pos[1] + 5),
+                    (pos[0], pos[1] + 20)
+                ]
+                for sparkle_pos in sparkle_positions:
+                    sparkle_surface = pygame.Surface((4, 4), pygame.SRCALPHA)
+                    pygame.draw.circle(sparkle_surface, sparkle_color, (2, 2), 2)
+                    self.screen.blit(sparkle_surface, sparkle_pos)
             self.screen.blit(mag_text, mag_rect)
             
         elif agent_type == 'finance':
-            # Finance: Dollar sign with calculator/chart theme
+            # Finance: Enhanced dollar sign with calculator/chart theme and money animation
             pygame.draw.circle(self.screen, status_color, pos, radius)
             pygame.draw.circle(self.screen, self.colors['text'], pos, radius, 3)
             
-            # Draw dollar sign
-            dollar_text = self.font_large.render("$$$", True, self.colors['text'])
+            # Draw animated dollar sign
+            dollar_scale = 1.0 + 0.25 * math.sin(self.time_offset * 5) if agent.status.value == 'working' else 1.0
+            dollar_text = self.font_large.render("💰", True, self.colors['text'])
             dollar_rect = dollar_text.get_rect(center=(pos[0], pos[1] - 8))
-            self.screen.blit(dollar_text, dollar_rect)
+            if dollar_scale != 1.0:
+                scaled_dollar = pygame.transform.scale(dollar_text, (int(dollar_rect.width * dollar_scale), int(dollar_rect.height * dollar_scale)))
+                dollar_rect = scaled_dollar.get_rect(center=(pos[0], pos[1] - 8))
+                self.screen.blit(scaled_dollar, dollar_rect)
+            else:
+                self.screen.blit(dollar_text, dollar_rect)
             
-            # Draw calculator
+            # Draw calculator with money flow effect
             calc_text = self.font_small.render("CALC", True, self.colors['text'])
             calc_rect = calc_text.get_rect(center=(pos[0], pos[1] + 12))
+            # Add money flow particles when working
+            if agent.status.value == 'working':
+                for i in range(3):
+                    money_x = pos[0] + 20 * math.cos(self.time_offset * 2 + i * 2)
+                    money_y = pos[1] + 20 * math.sin(self.time_offset * 2 + i * 2)
+                    money_surface = pygame.Surface((8, 8), pygame.SRCALPHA)
+                    pygame.draw.circle(money_surface, (*self.colors['finance'], 120), (4, 4), 4)
+                    self.screen.blit(money_surface, (money_x - 4, money_y - 4))
             self.screen.blit(calc_text, calc_rect)
             
         elif agent_type == 'manager':
-            # Manager: Leadership/organizational theme
+            # Manager: Enhanced leadership theme with organizational chart animation
             pygame.draw.circle(self.screen, status_color, pos, radius)
             pygame.draw.circle(self.screen, self.colors['text'], pos, radius, 3)
             
-            # Draw briefcase icon
-            briefcase_text = self.font_large.render("MGR", True, self.colors['text'])
+            # Draw animated briefcase icon
+            briefcase_scale = 1.0 + 0.1 * math.sin(self.time_offset * 2) if agent.status.value == 'working' else 1.0
+            briefcase_text = self.font_large.render("👔", True, self.colors['text'])
             briefcase_rect = briefcase_text.get_rect(center=(pos[0], pos[1] - 8))
-            self.screen.blit(briefcase_text, briefcase_rect)
+            if briefcase_scale != 1.0:
+                scaled_briefcase = pygame.transform.scale(briefcase_text, (int(briefcase_rect.width * briefcase_scale), int(briefcase_rect.height * briefcase_scale)))
+                briefcase_rect = scaled_briefcase.get_rect(center=(pos[0], pos[1] - 8))
+                self.screen.blit(scaled_briefcase, briefcase_rect)
+            else:
+                self.screen.blit(briefcase_text, briefcase_rect)
             
-            # Draw organizational chart
+            # Draw organizational chart with connection lines
             org_text = self.font_small.render("LEAD", True, self.colors['text'])
             org_rect = org_text.get_rect(center=(pos[0], pos[1] + 12))
+            # Add leadership connection lines when working
+            if agent.status.value == 'working':
+                for i, other_agent in enumerate(['sales', 'appraisal', 'finance']):
+                    if other_agent in self.agent_positions:
+                        other_pos = self.agent_positions[other_agent]
+                        alpha = int(100 + 50 * math.sin(self.time_offset * 3 + i))
+                        line_surface = pygame.Surface((self.graphics_width, self.height), pygame.SRCALPHA)
+                        pygame.draw.line(line_surface, (*self.colors['manager'], alpha), pos, other_pos, 2)
+                        self.screen.blit(line_surface, (0, 0))
             self.screen.blit(org_text, org_rect)
         
         # Draw agent name with role title
@@ -1433,12 +2071,15 @@ class UnifiedVisualizer:
             'timestamp': time.time()
         })
         
-        # Add completion particles
+        # Add spectacular completion effects
         if task.agent_type in self.agent_positions:
             pos = self.agent_positions[task.agent_type]
-            for _ in range(15):
+            agent_color = self.colors[task.agent_type]
+            
+            # Add completion particles
+            for _ in range(25):
                 angle = random.random() * 2 * math.pi
-                speed = 2 + random.random() * 3
+                speed = 2 + random.random() * 4
                 self.particles.append({
                     'x': pos[0],
                     'y': pos[1],
@@ -1448,6 +2089,23 @@ class UnifiedVisualizer:
                     'alpha': 255,
                     'color': self.colors['completed']
                 })
+            
+            # Add energy ring effect
+            self.add_energy_ring(pos, agent_color, 120)
+            
+            # Add pulse ring effect
+            self.add_pulse_ring(pos, self.colors['completed'], 180)
+            
+            # Add spiral particles
+            self.add_spiral_particles(pos, agent_color, 15)
+            
+            # Add firework effect for major tasks
+            if len(result) > 100:  # Major task completion
+                self.add_firework(pos, agent_color)
+            
+            # Add laser beam from orchestrator to agent
+            orchestrator_pos = self.agent_positions['orchestrator']
+            self.add_laser_beam(orchestrator_pos, pos, self.colors['completed'], 45)
         
         # Add floating response window
         self.add_floating_response(task.agent_type, result)
