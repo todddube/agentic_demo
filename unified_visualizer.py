@@ -113,6 +113,7 @@ class UnifiedVisualizer:
         # Agent positions (circular layout in graphics panel)
         self.agent_positions = {}
         self.positions_file = "agent_positions.json"
+        self.using_default_positions = True  # Track if using default layout
         
         # Animation and visual effects
         self.animations = {}
@@ -359,13 +360,16 @@ class UnifiedVisualizer:
         """Setup agent positions - load from file if available, otherwise use default circular layout"""
         # Try to load saved positions first
         if self.load_agent_positions():
+            self.using_default_positions = False
             return
         
         # Fallback to default circular layout
         self.create_default_agent_positions()
+        self.using_default_positions = True
     
     def create_default_agent_positions(self):
         """Create default circular positions for agents in the graphics panel"""
+        self.using_default_positions = True
         # Center of graphics panel
         center_x = self.graphics_width // 2
         center_y = self.height // 2
@@ -424,6 +428,7 @@ class UnifiedVisualizer:
                     self.agent_custom_sizes.update(saved_sizes)
                     
                     self.add_text(f"[FOLDER] Loaded saved agent positions and {len(saved_sizes)} custom sizes", "info")
+                    self.using_default_positions = False
                     return True
         except Exception as e:
             self.add_text(f"[WARN] Error loading positions: {e}", "error")
@@ -627,7 +632,11 @@ class UnifiedVisualizer:
     def run_visualization(self):
         """Main visualization loop"""
         try:
-            self.screen = pygame.display.set_mode((self.width, self.height))
+            # Make the window resizable
+            self.screen = pygame.display.set_mode(
+                (self.width, self.height), 
+                pygame.RESIZABLE
+            )
             pygame.display.set_caption("CarMax Store System - Team Interface")
             
             while self.running:
@@ -636,7 +645,9 @@ class UnifiedVisualizer:
                     if event.type == pygame.QUIT:
                         self.running = False
                         self.add_text("[CLOSE] Pygame window closed - shutting down application...", "info")
-                        return  # Exit the thread cleanly                       
+                        return  # Exit the thread cleanly
+                    elif event.type == pygame.VIDEORESIZE:
+                        self.handle_window_resize(event.w, event.h)
                     elif event.type == pygame.KEYDOWN:
                         # Check for Ctrl key combinations
                         keys = pygame.key.get_pressed()
@@ -1240,7 +1251,7 @@ class UnifiedVisualizer:
         pygame.draw.rect(self.screen, self.colors['panel_bg'], graphics_rect)
         pygame.draw.rect(self.screen, self.colors['panel_border'], graphics_rect, 2)
         
-        if self.demo_state == "start_screen":
+        if self.demo_state == "start_screen" or self.demo_state == "ollama_failed":
             self.draw_start_screen()
         else:
             # Title
@@ -1300,6 +1311,11 @@ class UnifiedVisualizer:
         """Draw the start screen with title and start button"""
         center_x = self.graphics_width // 2
         center_y = self.height // 2
+        
+        # Check if this is an Ollama failure state
+        if hasattr(self, 'demo_state') and self.demo_state == "ollama_failed":
+            self.draw_ollama_error_screen()
+            return
         
         # Add some background effects for the start screen
         self.add_random_effects()
@@ -1396,6 +1412,67 @@ class UnifiedVisualizer:
             text = self.font_small.render(instruction, True, color)
             text_rect = text.get_rect(centerx=center_x, y=center_y + 160 + i * 20)
             self.screen.blit(text, text_rect)
+    
+    def draw_ollama_error_screen(self):
+        """Draw error screen when Ollama connection fails"""
+        center_x = self.graphics_width // 2
+        center_y = self.height // 2
+        
+        # Error title with red pulsing effect
+        pulse = 1.0 + 0.3 * math.sin(self.time_offset * 3)
+        error_color = (int(255 * pulse), 50, 50)
+        error_color = tuple(max(0, min(255, c)) for c in error_color)
+        
+        title = self.font_title.render("❌ OLLAMA CONNECTION FAILED ❌", True, error_color)
+        title_rect = title.get_rect(centerx=center_x, y=center_y - 200)
+        self.screen.blit(title, title_rect)
+        
+        # Error messages
+        error_messages = [
+            "",  # Empty line
+            "The demo could not connect to Ollama AI server.",
+            "",  # Empty line
+            "📋 MANUAL SETUP REQUIRED:",
+            "",  # Empty line
+            "1. Open a terminal/command prompt",
+            "2. Run: ollama serve",
+            "3. In another terminal, run: ollama pull llama3.2",
+            "4. Restart this demo",
+            "",  # Empty line
+            "🔗 If Ollama is not installed:",
+            "• Visit: https://ollama.ai",
+            "• Download and install Ollama for your system",
+            "",  # Empty line
+            "⚡ Press ESC or close window to exit ⚡"
+        ]
+        
+        # Draw error messages with alternating colors
+        y_offset = center_y - 120
+        for i, message in enumerate(error_messages):
+            if not message:  # Empty line
+                y_offset += 15
+                continue
+                
+            # Choose color based on message type
+            if message.startswith("📋") or message.startswith("🔗"):
+                color = self.colors['neon_cyan']
+            elif message.startswith("•") or message.startswith("1.") or message.startswith("2.") or message.startswith("3.") or message.startswith("4."):
+                color = self.colors['text_secondary']
+            elif "ESC" in message:
+                color = self.colors['neon_orange']
+            else:
+                color = self.colors['text']
+            
+            # Add subtle pulsing to important messages
+            if "ESC" in message or message.startswith("📋") or message.startswith("🔗"):
+                pulse_factor = 1.0 + 0.2 * math.sin(self.time_offset * 2 + i)
+                color = tuple(int(c * pulse_factor) for c in color)
+                color = tuple(max(0, min(255, c)) for c in color)
+            
+            text = self.font_small.render(message, True, color)
+            text_rect = text.get_rect(centerx=center_x, y=y_offset)
+            self.screen.blit(text, text_rect)
+            y_offset += 18
     
     def hsv_to_rgb(self, h, s, v):
         """Convert HSV color to RGB"""
@@ -2138,10 +2215,15 @@ class UnifiedVisualizer:
     
     def update_fonts(self):
         """Update font sizes based on text panel width and scaling factors"""
-        # Calculate scale factor based on text panel width
+        # Calculate scale factor based on both text panel width and overall window size
         # Base width of 600px gives scale of 1.0
         base_width = 600
-        panel_scale_factor = max(0.7, min(1.5, self.text_width / base_width))
+        base_height = 800
+        
+        # Factor in both width and height for more responsive scaling
+        width_scale = self.text_width / base_width
+        height_scale = self.height / base_height
+        panel_scale_factor = max(0.6, min(1.8, (width_scale + height_scale) / 2))
         
         # Apply main font scaling to graphics panel fonts
         main_scale = panel_scale_factor * self.main_font_scale
@@ -2174,6 +2256,67 @@ class UnifiedVisualizer:
         char_width = self.font_mono.size("M")[0]  # Use 'M' as reference character
         available_width = self.text_width - 30  # Account for padding
         self.text_wrap_width = max(20, available_width // char_width)
+    
+    def handle_window_resize(self, new_width: int, new_height: int) -> None:
+        """Handle window resize events and update layout accordingly.
+        
+        Args:
+            new_width: New window width
+            new_height: New window height
+        """
+        # Update window dimensions
+        old_width, old_height = self.width, self.height
+        self.width = new_width
+        self.height = new_height
+        
+        # Recreate the screen surface with new dimensions
+        self.screen = pygame.display.set_mode(
+            (self.width, self.height), 
+            pygame.RESIZABLE
+        )
+        
+        # Calculate new panel layout while maintaining proportions
+        graphics_ratio = self.graphics_width / old_width if old_width > 0 else 0.6
+        self.graphics_width = int(self.width * graphics_ratio)
+        
+        # Apply constraints
+        self.graphics_width = max(
+            self.min_graphics_width, 
+            min(self.graphics_width, self.max_graphics_width)
+        )
+        self.text_width = self.width - self.graphics_width
+        
+        # Update min/max graphics width based on new window size
+        self.min_graphics_width = int(self.width * 0.4)
+        self.max_graphics_width = int(self.width * 0.8)
+        
+        # Recreate star field for new dimensions
+        self.star_field.clear()
+        self.init_star_field()
+        
+        # Update agent positions proportionally if they were using default layout
+        if hasattr(self, 'using_default_positions') and self.using_default_positions:
+            self.create_default_agent_positions()
+        else:
+            # Scale existing custom positions proportionally
+            width_scale = new_width / old_width if old_width > 0 else 1.0
+            height_scale = new_height / old_height if old_height > 0 else 1.0
+            
+            for agent_type, (x, y) in self.agent_positions.items():
+                # Only scale positions within graphics panel
+                if x <= old_width * graphics_ratio:  # Was in graphics panel
+                    new_x = min(int(x * width_scale), self.graphics_width - 50)
+                    new_y = max(50, min(int(y * height_scale), self.height - 50))
+                    self.agent_positions[agent_type] = (new_x, new_y)
+        
+        # Update font sizes for new layout
+        self.update_fonts()
+        
+        # Log the resize event
+        self.add_text(
+            f"[RESIZE] Window resized to {new_width}x{new_height}", 
+            "info"
+        )
     
     def add_floating_response(self, agent_type: str, response_text: str):
         """Add a floating response window near an agent"""

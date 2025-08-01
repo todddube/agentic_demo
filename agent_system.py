@@ -1,11 +1,20 @@
-import requests
+"""CarMax Store Agent System.
+
+This module provides the agent system for the CarMax store demo,
+including agent orchestration, task management, and Ollama API integration.
+"""
+
 import json
 import time
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
+
+import requests
 
 class AgentStatus(Enum):
+    """Enumeration of possible agent statuses."""
+    
     IDLE = "idle"
     WORKING = "working"
     COMPLETED = "completed"
@@ -13,6 +22,17 @@ class AgentStatus(Enum):
 
 @dataclass
 class Task:
+    """Represents a task to be processed by an agent.
+    
+    Attributes:
+        id: Unique identifier for the task
+        description: Human-readable description of the task
+        agent_type: Type of agent that should handle this task
+        status: Current status of the task
+        result: Result returned by the agent (if completed)
+        timestamp: Timestamp when the task was completed
+    """
+    
     id: str
     description: str
     agent_type: str
@@ -21,19 +41,43 @@ class Task:
     timestamp: Optional[str] = None
 
 class OllamaClient:
-    def __init__(self, base_url: str = "http://localhost:11434"):
-        self.base_url = base_url
-        self.interaction_callback = None  # Callback for visualizing interactions
-        self.request_count = 0
-        self.last_request_time = None
-        self.current_agent_type = None  # Current agent making the request
+    """Client for communicating with Ollama API.
+    
+    Handles HTTP requests to the Ollama server and provides
+    callbacks for interaction visualization.
+    """
+    
+    def __init__(self, base_url: str = "http://localhost:11434") -> None:
+        """Initialize the Ollama client.
         
-    def set_interaction_callback(self, callback):
-        """Set callback function for interaction visualization"""
+        Args:
+            base_url: Base URL for the Ollama API server
+        """
+        self.base_url = base_url
+        self.interaction_callback: Optional[Callable] = None
+        self.request_count = 0
+        self.last_request_time: Optional[float] = None
+        self.current_agent_type: Optional[str] = None
+        
+    def set_interaction_callback(self, callback: Callable) -> None:
+        """Set callback function for interaction visualization.
+        
+        Args:
+            callback: Function to call when interactions occur
+        """
         self.interaction_callback = callback
         
     def generate(self, model: str, prompt: str, system_prompt: str = "") -> str:
-        """Generate text using Ollama API"""
+        """Generate text using Ollama API.
+        
+        Args:
+            model: Name of the Ollama model to use
+            prompt: Input prompt for text generation
+            system_prompt: System prompt to set context
+            
+        Returns:
+            Generated text response or error message
+        """
         self.request_count += 1
         self.last_request_time = time.time()
         
@@ -97,21 +141,44 @@ class OllamaClient:
             return error_msg
 
 class BaseAgent:
-    def __init__(self, name: str, role: str, model: str = "llama3.2"):
+    """Base class for all agents in the CarMax system.
+    
+    Provides common functionality for task processing and status management.
+    """
+    
+    def __init__(self, name: str, role: str, model: str = "llama3.2") -> None:
+        """Initialize the base agent.
+        
+        Args:
+            name: Display name for the agent
+            role: Role description for the agent
+            model: Ollama model to use for text generation
+        """
         self.name = name
         self.role = role
         self.model = model
         self.client = OllamaClient()
         self.status = AgentStatus.IDLE
         self.tasks_completed = 0
-        self.agent_type = None  # Will be set by orchestrator
+        self.agent_type: Optional[str] = None
         
-    def set_agent_type(self, agent_type: str):
-        """Set the agent type for interaction tracking"""
+    def set_agent_type(self, agent_type: str) -> None:
+        """Set the agent type for interaction tracking.
+        
+        Args:
+            agent_type: Type identifier for this agent
+        """
         self.agent_type = agent_type
         
     def process_task(self, task: Task) -> str:
-        """Process a task and return the result"""
+        """Process a task and return the result.
+        
+        Args:
+            task: Task object to process
+            
+        Returns:
+            Result string from task processing
+        """
         self.status = AgentStatus.WORKING
         task.status = AgentStatus.WORKING
         
@@ -143,11 +210,24 @@ class BaseAgent:
             return error_msg
     
     def get_system_prompt(self) -> str:
-        """Override in subclasses to provide specific system prompts"""
+        """Get system prompt for this agent type.
+        
+        Override in subclasses to provide specific system prompts.
+        
+        Returns:
+            System prompt string
+        """
         return "You are a helpful AI assistant."
 
 class SalesConsultantAgent(BaseAgent):
-    def __init__(self, name: str = "Sales Consultant"):
+    """Sales consultant agent specialized in helping customers find vehicles."""
+    
+    def __init__(self, name: str = "Sales Consultant") -> None:
+        """Initialize the sales consultant agent.
+        
+        Args:
+            name: Display name for the agent
+        """
         super().__init__(name, "CarMax Sales Consultant", "llama3.2")
     
     def get_system_prompt(self) -> str:
@@ -156,7 +236,14 @@ class SalesConsultantAgent(BaseAgent):
         Keep responses friendly, informative, and focused on customer satisfaction. Under 200 words unless asked for more."""
 
 class AppraisalManagerAgent(BaseAgent):
-    def __init__(self, name: str = "Appraisal Manager"):
+    """Appraisal manager agent specialized in vehicle evaluation."""
+    
+    def __init__(self, name: str = "Appraisal Manager") -> None:
+        """Initialize the appraisal manager agent.
+        
+        Args:
+            name: Display name for the agent
+        """
         super().__init__(name, "CarMax Appraisal Manager", "llama3.2")
     
     def get_system_prompt(self) -> str:
@@ -164,7 +251,14 @@ class AppraisalManagerAgent(BaseAgent):
         Be analytical, detail-oriented, and provide accurate vehicle evaluations based on data and market trends."""
 
 class FinanceManagerAgent(BaseAgent):
-    def __init__(self, name: str = "Finance Manager"):
+    """Finance manager agent specialized in financing deals."""
+    
+    def __init__(self, name: str = "Finance Manager") -> None:
+        """Initialize the finance manager agent.
+        
+        Args:
+            name: Display name for the agent
+        """
         super().__init__(name, "CarMax Finance Manager", "llama3.2")
     
     def get_system_prompt(self) -> str:
@@ -172,7 +266,14 @@ class FinanceManagerAgent(BaseAgent):
         understand payment plans. Create clear, organized financial solutions with step-by-step explanations."""
 
 class StoreManagerAgent(BaseAgent):
-    def __init__(self, name: str = "Store Manager"):
+    """Store manager agent specialized in operations oversight."""
+    
+    def __init__(self, name: str = "Store Manager") -> None:
+        """Initialize the store manager agent.
+        
+        Args:
+            name: Display name for the agent
+        """
         super().__init__(name, "CarMax Store Manager", "llama3.2")
     
     def get_system_prompt(self) -> str:
@@ -180,8 +281,15 @@ class StoreManagerAgent(BaseAgent):
         Provide leadership perspective, quality assessments, and operational improvements."""
 
 class AgentOrchestrator:
-    def __init__(self):
-        self.agents = {
+    """Orchestrates multiple agents to handle CarMax store operations.
+    
+    Manages task distribution, agent coordination, and provides
+    callbacks for visualization and logging.
+    """
+    
+    def __init__(self) -> None:
+        """Initialize the agent orchestrator with CarMax team members."""
+        self.agents: Dict[str, BaseAgent] = {
             "sales": SalesConsultantAgent("🚗 Mike Rodriguez - Sales Pro"),
             "appraisal": AppraisalManagerAgent("📊 Sarah Chen - Vehicle Expert"), 
             "finance": FinanceManagerAgent("💰 David Williams - Finance Wizard"),
@@ -189,48 +297,81 @@ class AgentOrchestrator:
         }
         self.task_queue: List[Task] = []
         self.completed_tasks: List[Task] = []
-        self.ollama_interaction_callback = None  # For visualizer
-        self.log_callback = None  # For sending log messages to visualizer
+        self.ollama_interaction_callback: Optional[Callable] = None
+        self.log_callback: Optional[Callable] = None
         
         # Set up Ollama callbacks for all agents
         self.setup_ollama_callbacks()
     
-    def setup_ollama_callbacks(self):
-        """Set up Ollama interaction callbacks for all agents"""
+    def setup_ollama_callbacks(self) -> None:
+        """Set up Ollama interaction callbacks for all agents."""
         for agent_type, agent in self.agents.items():
             agent.set_agent_type(agent_type)  # Set the agent type
             agent.client.set_interaction_callback(self._handle_ollama_interaction)
             agent.client.current_agent_type = agent_type  # Set current agent type in client
     
-    def set_ollama_callback(self, callback):
-        """Set the callback for Ollama interactions"""
+    def set_ollama_callback(self, callback: Callable) -> None:
+        """Set the callback for Ollama interactions.
+        
+        Args:
+            callback: Function to call when Ollama interactions occur
+        """
         self.ollama_interaction_callback = callback
     
-    def _handle_ollama_interaction(self, interaction_type: str, data: dict):
-        """Handle Ollama interactions for visualization"""
+    def _handle_ollama_interaction(self, interaction_type: str, data: dict) -> None:
+        """Handle Ollama interactions for visualization.
+        
+        Args:
+            interaction_type: Type of interaction (request/response/error)
+            data: Interaction data dictionary
+        """
         if self.ollama_interaction_callback:
             self.ollama_interaction_callback(interaction_type, data)
     
-    def set_log_callback(self, callback):
-        """Set the callback for log messages"""
+    def set_log_callback(self, callback: Callable) -> None:
+        """Set the callback for log messages.
+        
+        Args:
+            callback: Function to call for log messages
+        """
         self.log_callback = callback
     
-    def log_message(self, message: str, message_type: str = "info"):
-        """Send a log message to the visualizer if callback is set, otherwise print"""
+    def log_message(self, message: str, message_type: str = "info") -> None:
+        """Send a log message to the visualizer if callback is set, otherwise print.
+        
+        Args:
+            message: Message to log
+            message_type: Type of message (info, error, success, etc.)
+        """
         if self.log_callback:
             self.log_callback(message, message_type)
         else:
             print(message)
     
     def create_task(self, description: str, agent_type: str) -> Task:
-        """Create a new task"""
+        """Create a new task.
+        
+        Args:
+            description: Human-readable description of the task
+            agent_type: Type of agent that should handle this task
+            
+        Returns:
+            Created Task object
+        """
         task_id = f"task_{len(self.task_queue) + len(self.completed_tasks) + 1:03d}"
         task = Task(id=task_id, description=description, agent_type=agent_type)
         self.task_queue.append(task)
         return task
     
     def assign_task(self, task: Task) -> str:
-        """Assign a task to the appropriate agent"""
+        """Assign a task to the appropriate agent.
+        
+        Args:
+            task: Task to assign and process
+            
+        Returns:
+            Result string from task processing
+        """
         if task.agent_type not in self.agents:
             return f"Error: Unknown agent type '{task.agent_type}'"
         
@@ -250,8 +391,8 @@ class AgentOrchestrator:
         
         return result
     
-    def process_all_tasks(self):
-        """Process all tasks in the queue"""
+    def process_all_tasks(self) -> None:
+        """Process all tasks in the queue sequentially."""
         self.log_message("[PROCESS] Starting task processing...", "info")
         
         while self.task_queue:
@@ -262,7 +403,11 @@ class AgentOrchestrator:
         self.log_message("[DONE] All tasks completed!", "success")
     
     def get_agent_status(self) -> Dict[str, Any]:
-        """Get status of all agents"""
+        """Get status of all agents.
+        
+        Returns:
+            Dictionary with agent status information
+        """
         status = {}
         for agent_type, agent in self.agents.items():
             status[agent_type] = {
@@ -274,7 +419,11 @@ class AgentOrchestrator:
         return status
     
     def get_task_summary(self) -> Dict[str, Any]:
-        """Get summary of all tasks"""
+        """Get summary of all tasks.
+        
+        Returns:
+            Dictionary with task summary information
+        """
         return {
             "total_tasks": len(self.completed_tasks) + len(self.task_queue),
             "completed_tasks": len(self.completed_tasks),

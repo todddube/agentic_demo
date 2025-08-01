@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Simple CarMax Store Demo with Unified Pygame Interface
+"""Simple CarMax Store Demo with Unified Pygame Interface.
+
 ======================================================
 
 This demo showcases CarMax store employees working together using Ollama's llama3.2 model
@@ -21,14 +21,18 @@ Requirements:
     - pygame installed (pip install pygame)
 """
 
-import time
 import json
+import subprocess
+import time
+from typing import List, Tuple
+import sys
+import os
 
 from agent_system import AgentOrchestrator, Task
 from unified_visualizer import UnifiedVisualizer
 
-def print_banner():
-    """Print a nice banner for the demo"""
+def print_banner() -> None:
+    """Print a nice banner for the demo."""
     print("=" * 70)
     print("           CarMax Store Demo")
     print("")
@@ -37,36 +41,106 @@ def print_banner():
     print("  Team: Sales | Appraisal | Finance | Manager")
     print("=" * 70)
 
-def check_ollama_connection(orchestrator, visualizer):
-    """Check if Ollama is running and llama3.2 is available"""
+def check_ollama_connection(orchestrator: AgentOrchestrator, 
+                          visualizer: UnifiedVisualizer) -> bool:
+    """Check if Ollama is running and llama3.2 is available.
+    
+    Args:
+        orchestrator: Agent orchestrator instance
+        visualizer: Visualizer instance for logging
+        
+    Returns:
+        True if connection is successful, False otherwise
+    """
     visualizer.log_message("[CHECK] Checking Ollama connection...", "info")
     
+    def test_ollama_connection():
+        """Test if Ollama is responding"""
+        try:
+            test_agent = orchestrator.agents['sales']
+            test_result = test_agent.client.generate(
+                model="llama3.2",
+                prompt="Say 'Hello' in exactly one word.",
+                system_prompt="You are a test agent. Respond with exactly one word."
+            )
+            return not ("Error" in test_result or not test_result.strip()), test_result
+        except Exception as e:
+            return False, str(e)
+    
+    # First attempt to connect
+    success, result = test_ollama_connection()
+    
+    if success:
+        visualizer.log_message("[OK] Ollama connection successful!", "success")
+        visualizer.log_message(f"   Test response: {result.strip()}", "text_secondary")
+        return True
+    
+    # Connection failed - try to start Ollama automatically
+    visualizer.log_message("[WARN] Ollama not responding. Attempting to start Ollama...", "info")
+    
     try:
-        # Test with a simple prompt
-        test_agent = orchestrator.agents['sales']
-        test_result = test_agent.client.generate(
-            model="llama3.2",
-            prompt="Say 'Hello' in exactly one word.",
-            system_prompt="You are a test agent. Respond with exactly one word."
-        )
+        # Try to start Ollama service
+        if os.name == 'nt':  # Windows
+            # Try to start ollama serve in background
+            subprocess.Popen(
+                ["ollama", "serve"], 
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        else:  # Unix-like systems
+            subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
         
-        if "Error" in test_result or not test_result.strip():
-            visualizer.log_message("[ERROR] Ollama connection failed. Please ensure:", "error")
-            visualizer.log_message("   1. Ollama is installed and running", "error")
-            visualizer.log_message("   2. Run: ollama serve", "error")
-            visualizer.log_message("   3. Run: ollama pull llama3.2", "error")
-            return False
-        else:
-            visualizer.log_message("[OK] Ollama connection successful!", "success")
-            visualizer.log_message(f"   Test response: {test_result.strip()}", "text_secondary")
-            return True
+        visualizer.log_message("[INFO] Starting Ollama service... Please wait...", "info")
+        
+        # Wait a moment for Ollama to start
+        for i in range(10):  # Wait up to 10 seconds
+            time.sleep(1)
+            visualizer.log_message(f"[WAIT] Checking connection... ({i+1}/10)", "info")
             
+            success, result = test_ollama_connection()
+            if success:
+                visualizer.log_message("[OK] Ollama started successfully!", "success")
+                visualizer.log_message(f"   Test response: {result.strip()}", "text_secondary")
+                return True
+        
+        # Still not working after trying to start
+        visualizer.log_message("[ERROR] Failed to start Ollama automatically.", "error")
+        
+    except FileNotFoundError:
+        visualizer.log_message("[ERROR] Ollama not found in system PATH.", "error")
     except Exception as e:
-        visualizer.log_message(f"[ERROR] Connection error: {str(e)}", "error")
-        return False
+        visualizer.log_message(f"[ERROR] Error starting Ollama: {str(e)}", "error")
+    
+    # Final error message and instructions
+    visualizer.log_message("", "error")  # Empty line
+    visualizer.log_message("❌ OLLAMA CONNECTION FAILED", "error")
+    visualizer.log_message("", "error")  # Empty line
+    visualizer.log_message("Please manually start Ollama:", "error")
+    visualizer.log_message("", "error")  # Empty line
+    visualizer.log_message("1. Open a terminal/command prompt", "error")
+    visualizer.log_message("2. Run: ollama serve", "error")
+    visualizer.log_message("3. In another terminal, run: ollama pull llama3.2", "error")
+    visualizer.log_message("4. Restart this demo", "error")
+    visualizer.log_message("", "error")  # Empty line
+    visualizer.log_message("If Ollama is not installed:", "error")
+    visualizer.log_message("• Visit: https://ollama.ai", "error")
+    visualizer.log_message("• Download and install Ollama", "error")
+    visualizer.log_message("", "error")  # Empty line
+    visualizer.log_message("Press ESC or close window to exit.", "error")
+    
+    return False
 
-def create_demo_tasks():
-    """Create a set of CarMax store-related demo tasks"""
+def create_demo_tasks() -> List[Tuple[str, str]]:
+    """Create a set of CarMax store-related demo tasks.
+    
+    Returns:
+        List of tuples containing (task_description, agent_type)
+    """
     return [
         ("Help a customer find a reliable family SUV under $25,000", "sales"),
         ("Create a plan for training new sales consultants", "manager"),
@@ -78,8 +152,14 @@ def create_demo_tasks():
         ("Help a first-time buyer understand CarMax warranties", "sales"),
     ]
 
-def run_demo(orchestrator, visualizer):
-    """Run the CarMax store demo with unified visualization"""
+def run_demo(orchestrator: AgentOrchestrator, 
+            visualizer: UnifiedVisualizer) -> None:
+    """Run the CarMax store demo with unified visualization.
+    
+    Args:
+        orchestrator: Agent orchestrator instance
+        visualizer: Visualizer instance for display
+    """
     visualizer.log_message("[START] Starting CarMax Store Demo", "info")
     
     demo_tasks = create_demo_tasks()
@@ -90,7 +170,12 @@ def run_demo(orchestrator, visualizer):
     for i, (desc, agent_type) in enumerate(demo_tasks, 1):
         task = orchestrator.create_task(desc, agent_type)
         tasks.append(task)
-        role_name = {"sales": "Sales", "appraisal": "Appraisal", "finance": "Finance", "manager": "Manager"}[agent_type]
+        role_name = {
+            "sales": "Sales", 
+            "appraisal": "Appraisal", 
+            "finance": "Finance", 
+            "manager": "Manager"
+        }[agent_type]
         visualizer.log_message(f"   {i}. {desc[:50]}... → {role_name}", "text_secondary")
     
     visualizer.log_message(f"[PROCESS] Processing customer requests...", "info")
@@ -121,22 +206,37 @@ def run_demo(orchestrator, visualizer):
     visualizer.clear_current_task()
     visualizer.log_message("[SUCCESS] All tasks completed successfully!", "success")
 
-def show_summary(orchestrator, visualizer):
-    """Show a summary of agent performance"""
+def show_summary(orchestrator: AgentOrchestrator, 
+                visualizer: UnifiedVisualizer) -> None:
+    """Show a summary of agent performance.
+    
+    Args:
+        orchestrator: Agent orchestrator instance
+        visualizer: Visualizer instance for display
+    """
     visualizer.log_message("[STATS] Agent Performance Summary", "info")
     visualizer.log_message("=" * 40, "text_dim")
     
     for agent_type, agent in orchestrator.agents.items():
         status_icon = "[OK]" if agent.status.value == "completed" else "[WAIT]"
-        summary_line = f"{status_icon} {agent.name:15} | {agent.role:15} | Tasks: {agent.tasks_completed}"
+        summary_line = (
+            f"{status_icon} {agent.name:15} | "
+            f"{agent.role:15} | Tasks: {agent.tasks_completed}"
+        )
         visualizer.log_message(summary_line, "text_secondary")
     
     total_tasks = len(orchestrator.completed_tasks)
     visualizer.log_message(f"[TOTAL] Total tasks processed: {total_tasks}", "success")
     visualizer.log_message("=" * 40, "text_dim")
 
-def show_task_details(orchestrator, visualizer):
-    """Show detailed results of completed tasks"""
+def show_task_details(orchestrator: AgentOrchestrator, 
+                     visualizer: UnifiedVisualizer) -> None:
+    """Show detailed results of completed tasks.
+    
+    Args:
+        orchestrator: Agent orchestrator instance
+        visualizer: Visualizer instance for display
+    """
     visualizer.log_message("[DETAILS] Detailed Task Results", "info")
     visualizer.log_message("=" * 50, "text_dim")
     
@@ -144,11 +244,12 @@ def show_task_details(orchestrator, visualizer):
         agent = orchestrator.agents[task.agent_type]
         visualizer.log_message(f"{task.id} | {agent.name} | {task.timestamp}", "info")
         visualizer.log_message(f"Task: {task.description}", "text_secondary")
-        visualizer.log_message(f"Result: {task.result[:100]}{'...' if len(task.result) > 100 else ''}", "text")
+        result_preview = task.result[:100] + ("..." if len(task.result) > 100 else "")
+        visualizer.log_message(f"Result: {result_preview}", "text")
         visualizer.log_message("-" * 50, "text_dim")
 
-def main():
-    """Main demo function"""
+def main() -> None:
+    """Main demo function."""
     # Initialize the system
     print("[INIT] Initializing CarMax Store System...")
     orchestrator = AgentOrchestrator()
@@ -158,12 +259,19 @@ def main():
     orchestrator.set_log_callback(visualizer.log_message)
     
     # Define the demo function to be called when start button is clicked
-    def demo_function():
-        """The actual demo logic that runs when start button is clicked"""
+    def demo_function() -> None:
+        """The actual demo logic that runs when start button is clicked."""
         # Check Ollama connection
         if not check_ollama_connection(orchestrator, visualizer):
             visualizer.log_message("❌ Demo cannot continue without Ollama connection.", "error")
-            visualizer.log_message("Please start Ollama and try again.", "error")
+            visualizer.log_message("", "error")  # Empty line
+            visualizer.log_message("The demo will remain open so you can:", "error")
+            visualizer.log_message("• Read the instructions above", "error")  
+            visualizer.log_message("• Start Ollama manually", "error")
+            visualizer.log_message("• Press ESC or close window when ready", "error")
+            
+            # Set demo state to failed so user knows what happened
+            visualizer.demo_state = "ollama_failed"
             return
         
         # Show initial agent status
@@ -180,8 +288,12 @@ def main():
         visualizer.log_message("[DONE] Demo completed! The system is now ready for exploration.", "success")
         visualizer.log_message("[INFO] Graphics panel shows team network and status", "info")
         visualizer.log_message("[INFO] Text panel shows all system output", "info")
-        visualizer.log_message("[UI] Use controls: ↑↓ scroll, Space: auto-scroll, D: details", "info")
-        visualizer.log_message("[EXIT] Close pygame window or press ESC to exit", "info")
+        visualizer.log_message(
+            "[UI] Use controls: ↑↓ scroll, Space: auto-scroll, D: details", "info"
+        )
+        visualizer.log_message(
+            "[EXIT] Close pygame window or press ESC to exit", "info"
+        )
     
     # Set the demo callback
     visualizer.set_demo_callback(demo_function)

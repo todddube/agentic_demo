@@ -1,6 +1,14 @@
 # 🚗 CarMax Store Team Demo with Ollama 3.2
 
-A CarMax store simulation featuring AI-powered team members working together using Ollama's llama3.2 model. Experience real-time visualization of store operations with animated graphics showing team interactions and customer service activities!
+A sophisticated CarMax store simulation featuring AI-powered team members working together using Ollama's llama3.2 model. Experience real-time visualization of store operations with animated graphics, resizable windows, and responsive font scaling that adapts to your display.
+
+## ✨ Latest Improvements
+
+- **🔧 Python Best Practices**: Enhanced code with proper type hints, docstrings, and PEP 8 compliance
+- **📏 Window Resizing**: Fully resizable pygame window with intelligent layout adaptation
+- **🔤 Responsive Fonts**: Auto-scaling fonts that adapt to window size and panel layout
+- **⚡ Performance Optimized**: Improved rendering and animation systems
+- **📚 Better Documentation**: Comprehensive type hints and docstrings throughout
 
 ## 🎮 Live Store Visualization
 
@@ -10,7 +18,8 @@ A CarMax store simulation featuring AI-powered team members working together usi
 - **Customer Requests** - Current tasks displayed in real-time
 - **Performance Metrics** - Live counters showing completed customer interactions
 - **Status Indicators** - Visual feedback for available, busy, and completed states
-- **Professional Interface** - Clean, modern display sized to 75% of your screen
+- **Resizable Interface** - Fully resizable window with adaptive layout and font scaling
+- **Professional Design** - Clean, modern display that adapts to any screen size
 
 🏪 **CarMax Store Team:**
 - **Mike Rodriguez** 🏆 - Sales Consultant who helps customers find vehicles
@@ -20,16 +29,25 @@ A CarMax store simulation featuring AI-powered team members working together usi
 
 ## 🚀 Running the Demo
 
-### CarMax Store Interface (RECOMMENDED)
-Real-time pygame visualization with animated team:
+### Cross-Platform Launcher (RECOMMENDED)
+Use the smart launcher with automatic dependency checking:
+```bash
+python launch_demo.py
+```
+
+### Direct Launch
+Run the main demo directly:
 ```bash
 python simple_demo.py
 ```
 
-This opens a large, beautifully designed pygame window showing:
-- **Left Panel:** Animated team network with live status updates
-- **Right Panel:** Scrollable text output with all system messages
-- **Interactive Controls:** Mouse and keyboard navigation
+### Windows Users
+Double-click `run_carmax_demo.bat` for a guided Windows experience.
+
+The demo opens a fully resizable pygame window showing:
+- **Graphics Panel:** Animated team network with live status updates
+- **Text Panel:** Scrollable output with responsive fonts
+- **Interactive Controls:** Full mouse and keyboard navigation
 
 ## Prerequisites
 
@@ -75,7 +93,10 @@ This opens a large, beautifully designed pygame window showing:
 ## 🚀 Quick Start
 
 ```bash
-# Run the CarMax store demo
+# Smart launcher with dependency checking (recommended)
+python launch_demo.py
+
+# Or run directly
 python simple_demo.py
 ```
 
@@ -91,21 +112,27 @@ python simple_demo.py
 
 ## 🎮 Interface Controls
 
-**Graphics Panel (Left 60%):**
+**Graphics Panel (Resizable 40-80%):**
 - **🏪 Team Network** - Circular layout showing all CarMax team members
 - **⚫ Status Indicators** - Color-coded circles showing availability/busy status
 - **💫 Work Animations** - Pulsing effects when helping customers
 - **✨ Completion Effects** - Animated particles when tasks are finished
 - **📊 Live Stats** - Real-time task counts and performance metrics
+- **🖱️ Drag & Drop** - Move and resize agent nodes interactively
 
-**Text Panel (Right 40%):**
-- **� System Output** - Scrollable log of all team activities
+**Text Panel (Auto-adjusting):**
+- **📝 System Output** - Scrollable log of all team activities with responsive fonts
 - **⏰ Timestamps** - Track when each customer interaction occurred
 - **📋 Interactive Controls** - Scroll, auto-scroll, and view options
 - **🎮 Keyboard Controls:** ↑↓ to scroll, Space for auto-scroll, D for details
-- **Status Indicators** - Real-time visual feedback
-- **Task Information** - Current task details and progress
-- **Performance Stats** - Live counters and metrics
+- **🔤 Font Scaling** - Ctrl+/- to adjust font size, Ctrl+0 to reset
+- **📏 Panel Resizing** - Drag the panel divider to adjust layout
+
+**Window Controls:**
+- **📏 Resizable Window** - Drag window edges to resize, layout adapts automatically
+- **🔤 Auto Font Scaling** - Fonts automatically scale with window size
+- **R Key** - Reset agent positions to default circular layout
+- **ESC** - Exit the application
 
 ## Sample Customer Requests
 
@@ -120,13 +147,16 @@ The demo includes realistic CarMax scenarios such as:
 ## 📁 Project Structure
 
 ```
-ollama/
+agentic_demo/
 ├── 📄 README.md                    # Project documentation  
-├── 📄 requirements.txt             # Python dependencies (pygame, requests)
+├── 📄 requirements.txt             # Python dependencies
 ├── 🐍 agent_system.py              # CarMax team classes and orchestrator
-├── 🐍 unified_visualizer.py        # Real-time pygame visualization
+├── 🐍 unified_visualizer.py        # Real-time pygame visualization engine
 ├── 🐍 simple_demo.py               # Main CarMax store demo
-└── �️ __pycache__/                 # Python cache (auto-generated)
+├── 🐍 launch_demo.py               # Cross-platform launcher with dependency checking
+├── 🪟 run_carmax_demo.bat          # Windows convenience launcher
+├── 📄 agent_positions.json         # Saved agent positions and customizations
+└── 📁 .gitignore                   # Git ignore file (excludes __pycache__)
 ```
 
 ## ✨ Key Features
@@ -138,8 +168,13 @@ ollama/
 ✅ **Performance Monitoring** with live customer service metrics
 ✅ **Interactive Interface** with customer request progress
 ✅ **Ollama Integration** using llama3.2 model for realistic responses
-✅ **Automatic Screen Sizing** - adapts to 75% of your screen resolution
-✅ **Professional UI** with readable fonts and clean design
+✅ **Fully Resizable Window** - adapts to any screen size with intelligent scaling
+✅ **Responsive Font System** - fonts auto-scale with window size and panel layout
+✅ **Python Best Practices** - type hints, proper documentation, PEP 8 compliance
+✅ **Draggable Agent Nodes** - customize team layout by dragging agents
+✅ **Professional UI** with adaptive design and smooth animations
+✅ **Clean Codebase** - removed redundant files, optimized structure
+✅ **Cross-Platform Launcher** - smart dependency checking and installation
 
 ## Troubleshooting
 
@@ -159,8 +194,10 @@ ollama/
    - Wait for download to complete (model is ~2GB)
 
 4. **Window Size Issues**
-   - The interface automatically sizes to 75% of your screen
-   - Ensure your screen resolution is at least 1024x768
+   - The interface is fully resizable - drag window edges to adjust size
+   - Fonts automatically scale with window size for optimal readability
+   - Minimum recommended resolution: 1024x768
+   - Use Ctrl+/- to manually adjust font sizes if needed
 
 ### Performance Tips
 
@@ -168,6 +205,9 @@ ollama/
 - Adjust response length in agent system prompts
 - Close other resource-intensive applications
 - Use smaller model variants like `llama3.2:1b` for testing
+- **Window Size**: Smaller windows render faster - resize as needed
+- **Font Scaling**: Lower font scales (Ctrl+-) can improve text rendering performance
+- **Panel Layout**: Adjust graphics/text panel ratio for optimal performance
 
 ## Example Output
 
@@ -202,6 +242,26 @@ Task: Appraise a 2018 Honda Civic with 45,000 miles
 
 **🚗 Experience the CarMax difference with AI-powered team simulation!**
 
+## 🛠️ Technical Implementation
+
+### Code Quality
+- **Type Hints**: Comprehensive type annotations throughout
+- **Documentation**: Detailed docstrings for all classes and methods
+- **PEP 8 Compliance**: Consistent code formatting and style
+- **Error Handling**: Robust exception handling and logging
+
+### UI Features
+- **Responsive Layout**: Window resizing with proportional scaling
+- **Font Management**: Dynamic font sizing based on window dimensions
+- **Interactive Elements**: Draggable agents, resizable panels
+- **Animation System**: Smooth visual effects and state transitions
+
+### Architecture
+- **Agent System**: Modular agent classes with clear interfaces
+- **Event Handling**: Comprehensive pygame event processing
+- **State Management**: Clean separation of UI and business logic
+- **Callback System**: Decoupled communication between components
+
 ## License
 
-This is a demonstration project for educational purposes. Feel free to modify and extend for your own projects.
+This is a demonstration project for educational purposes showcasing modern Python development practices, pygame GUI design, and AI agent orchestration. Feel free to modify and extend for your own projects.
