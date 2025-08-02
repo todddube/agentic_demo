@@ -50,7 +50,9 @@ pip install -r app/requirements.txt
    - Start service: `ollama serve`
    - Download model: `ollama pull llama3.2`
 
-2. **Python Dependencies**: See `app/requirements.txt` for pygame, requests, ollama client
+2. **Python Dependencies**: Enhanced requirements with modern async libraries
+   - `pip install -r app/requirements.txt`
+   - Includes: aiohttp, pydantic, pygame, rich, ollama client
 
 ## Key Files and Entry Points
 
