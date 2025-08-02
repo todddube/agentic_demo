@@ -201,33 +201,48 @@ class UnifiedVisualizer:
         # UI State
         self.show_details = True
         
-        # Fonts - will be updated based on panel size
+        # Fonts - optimized base sizes for better readability
         self.base_font_sizes = {
             'title': 32,
-            'large': 28,
-            'medium': 20,
-            'small': 16,
-            'mono': 18
+            'large': 26,
+            'medium': 18,
+            'small': 14,
+            'mono': 12  # Smaller console font for better readability
         }
         
-        # Font scaling factors (1.0 = normal size)
-        self.main_font_scale = 1.0
-        self.output_font_scale = 1.0
-        self.min_font_scale = 0.5
-        self.max_font_scale = 2.0
+        # Font scaling - optimized for console readability
+        self.main_font_scale = 1.0      # For graphics panel
+        self.output_font_scale = 1.2    # Slightly larger console text
+        self.min_font_scale = 0.6       # Don't go too small
+        self.max_font_scale = 2.5       # Allow larger scaling
         self.font_scale_step = 0.1
         
-        # Try to use a better monospace font if available
+        # Enhanced monospace font selection for better console readability
         self.mono_font_name = None
-        try:
-            pygame.font.SysFont('consolas', 16)
-            self.mono_font_name = 'consolas'
-        except:
+        self.mono_font_bold = False
+        
+        # Try multiple high-quality monospace fonts in order of preference
+        preferred_fonts = [
+            ('JetBrains Mono', False),
+            ('Fira Code', False), 
+            ('Source Code Pro', False),
+            ('Consolas', False),
+            ('Monaco', False),
+            ('Menlo', False),
+            ('DejaVu Sans Mono', False),
+            ('Liberation Mono', False),
+            ('Courier New', True),  # Use bold for better visibility
+            ('Courier', False)
+        ]
+        
+        for font_name, use_bold in preferred_fonts:
             try:
-                pygame.font.SysFont('courier', 16)
-                self.mono_font_name = 'courier'
+                pygame.font.SysFont(font_name, 12, bold=use_bold)
+                self.mono_font_name = font_name
+                self.mono_font_bold = use_bold
+                break
             except:
-                self.mono_font_name = None
+                continue
         
         # Now update fonts
         self.update_fonts()
@@ -1510,7 +1525,9 @@ class UnifiedVisualizer:
         
         # Draw text lines
         start_y = 50
-        line_height = 20  # Increased from 16 to 20 for better spacing with larger font
+        # Dynamic line height based on actual font size for better readability
+        font_height = self.font_mono.get_height()
+        line_height = int(font_height * 1.3)  # 30% padding for better readability
         visible_lines = (self.height - start_y - 50) // line_height
         
         # Calculate which lines to show
@@ -2128,7 +2145,9 @@ class UnifiedVisualizer:
                 color = self.colors['text_secondary']
                 
             stat_render = self.font_small.render(stat, True, color)
-            self.screen.blit(stat_render, (20, stats_y + i * 18))
+            # Dynamic spacing for statistics based on font size
+            stat_line_height = self.font_small.get_height() + 2
+            self.screen.blit(stat_render, (20, stats_y + i * stat_line_height))
     
     def update_current_task(self, task, agent_name, agent_type):
         """Update the currently displayed task"""
@@ -2232,9 +2251,9 @@ class UnifiedVisualizer:
         medium_size = max(8, int(self.base_font_sizes['medium'] * main_scale))
         small_size = max(6, int(self.base_font_sizes['small'] * main_scale))
         
-        # Apply output font scaling to output panel font
+        # Apply output font scaling to output panel font with better minimum size
         output_scale = panel_scale_factor * self.output_font_scale
-        mono_size = max(6, int(self.base_font_sizes['mono'] * output_scale))
+        mono_size = max(8, int(self.base_font_sizes['mono'] * output_scale))  # Increased minimum from 6 to 8
         
         # Create main font objects (for graphics panel)
         self.font_title = pygame.font.Font(None, title_size)
@@ -2242,12 +2261,12 @@ class UnifiedVisualizer:
         self.font_medium = pygame.font.Font(None, medium_size)
         self.font_small = pygame.font.Font(None, small_size)
         
-        # Create monospace font with preferred font family (for output panel)
+        # Create optimized monospace font with better rendering (for output panel)
         if self.mono_font_name:
             try:
-                self.font_mono = pygame.font.SysFont(self.mono_font_name, mono_size)
+                self.font_mono = pygame.font.SysFont(self.mono_font_name, mono_size, bold=self.mono_font_bold)
             except:
-                self.font_mono = pygame.font.Font(None, mono_size)
+                self.font_mono = pygame.font.Font(None, max(mono_size, 8))  # Ensure minimum readable size
         else:
             self.font_mono = pygame.font.Font(None, mono_size)
         

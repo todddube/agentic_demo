@@ -20,7 +20,8 @@
       "Bash(move test_resize.py app )",
       "Bash(move unified_visualizer.py app )",
       "Bash(move agent_positions.json app)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
