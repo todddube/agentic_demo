@@ -78,11 +78,12 @@ def launch_demo() -> None:
     
     try:
         # Import and run the demo
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
         import simple_demo
         simple_demo.main()
     except ImportError as e:
         print(f"❌ Error importing demo: {e}")
-        print("   Make sure simple_demo.py is in the current directory")
+        print("   Make sure simple_demo.py is in the app directory")
         sys.exit(1)
     except Exception as e:
         print(f"❌ Error running demo: {e}")
@@ -115,7 +116,7 @@ def main() -> None:
             print()
             print("❌ Cannot run demo without required packages.")
             print("💡 Install them manually with:")
-            print(f"   pip install -r requirements.txt")
+            print(f"   pip install -r app/requirements.txt")
             input("Press Enter to exit...")
             sys.exit(1)
     

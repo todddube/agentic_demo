@@ -11,7 +11,16 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(rm:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(move agent_system.py app )",
+      "Bash(move debug_colors.py app )",
+      "Bash(move ollama_demo.py app )",
+      "Bash(move simple_demo.py app )",
+      "Bash(move test_resize.py app )",
+      "Bash(move unified_visualizer.py app )",
+      "Bash(move agent_positions.json app)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
